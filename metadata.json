@@ -1,0 +1,6 @@
+{
+  "name": "Giáo Lý Công Giáo",
+  "description": "Ứng dụng học thuộc lòng 650 câu Giáo lý Hội Thánh Công Giáo với chế độ Flashcard, Spaced Repetition, bài thi trắc nghiệm và tra cứu nhanh.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

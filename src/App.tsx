@@ -1,0 +1,259 @@
+import { useState, useEffect } from 'react';
+import { BookOpen, Layers, HelpCircle, LayoutDashboard, ChevronRight, Share2 } from 'lucide-react';
+import { Header } from './components/Header';
+import { Dashboard } from './components/Dashboard';
+import { BrowseMode } from './components/BrowseMode';
+import { MemoryMode } from './components/MemoryMode';
+import { QuizMode } from './components/QuizMode';
+import { QuestionItem, UserProgress } from './types';
+import { CATECHISM_DATA } from './data';
+
+const LOCAL_STORAGE_KEY = 'giaoly_progress_v1';
+
+const INITIAL_PROGRESS: UserProgress = {
+  learned: [],
+  needsReview: [],
+  reviewStates: {},
+  streak: 0,
+  lastActive: null,
+  quizScores: []
+};
+
+export default function App() {
+  const [view, setView] = useState<'dashboard' | 'browse' | 'memory' | 'quiz'>('dashboard');
+  const [progress, setProgress] = useState<UserProgress>(INITIAL_PROGRESS);
+  const [searchedQuestion, setSearchedQuestion] = useState<QuestionItem | null>(null);
+
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      return 'dark';
+    }
+    return 'light';
+  });
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  // Load user progress from localStorage on boot
+  useEffect(() => {
+    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (saved) {
+      try {
+        const parsed: UserProgress = JSON.parse(saved);
+        // Clean and validate structures
+        setProgress({
+          learned: parsed.learned || [],
+          needsReview: parsed.needsReview || [],
+          reviewStates: parsed.reviewStates || {},
+          streak: parsed.streak || 0,
+          lastActive: parsed.lastActive || null,
+          quizScores: parsed.quizScores || []
+        });
+      } catch (err) {
+        console.error('Error parsing local progression:', err);
+      }
+    }
+    updateStreak();
+  }, []);
+
+  // Save progress dynamically on any changes
+  const saveProgress = (newProgress: UserProgress) => {
+    setProgress(newProgress);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newProgress));
+  };
+
+  const updateStreak = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (!saved) return;
+    try {
+      const parsed: UserProgress = JSON.parse(saved);
+      if (parsed.lastActive === today) return; // Already checked today
+
+      let currentStreak = parsed.streak || 0;
+      if (parsed.lastActive) {
+        const lastDate = new Date(parsed.lastActive);
+        const diffTime = Math.abs(new Date(today).getTime() - lastDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 1) {
+          // Continuous days
+          currentStreak += 1;
+        } else if (diffDays > 1) {
+          // Streak broken
+          currentStreak = 1;
+        }
+      } else {
+        currentStreak = 1;
+      }
+
+      saveProgress({
+        ...parsed,
+        streak: currentStreak,
+        lastActive: today
+      });
+    } catch {
+       // Ignore fallback
+    }
+  };
+
+  const toggleLearnedStatus = (id: string, forceState?: 'learned' | 'needsReview') => {
+    const isCurrentlyLearned = progress.learned.includes(id);
+    let newLearned = [...progress.learned];
+    let newNeedsReview = [...progress.needsReview];
+
+    if (forceState === 'learned' || (forceState === undefined && !isCurrentlyLearned)) {
+      if (!newLearned.includes(id)) newLearned.push(id);
+      newNeedsReview = newNeedsReview.filter(x => x !== id);
+    } else {
+      newLearned = newLearned.filter(x => x !== id);
+      if (!newNeedsReview.includes(id)) newNeedsReview.push(id);
+    }
+
+    saveProgress({
+      ...progress,
+      learned: newLearned,
+      needsReview: newNeedsReview,
+      lastActive: new Date().toISOString().split('T')[0]
+    });
+  };
+
+  const handleSaveQuizResult = (correct: number, total: number) => {
+    const scoreItem = {
+      date: new Date().toISOString().split('T')[0],
+      total,
+      correct,
+      percentage: Math.round((correct / total) * 100)
+    };
+
+    saveProgress({
+      ...progress,
+      quizScores: [...progress.quizScores, scoreItem],
+      lastActive: new Date().toISOString().split('T')[0]
+    });
+  };
+
+  const handleSelectSearchedQuestion = (item: QuestionItem) => {
+    setSearchedQuestion(item);
+    setView('browse');
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950 text-gray-800 dark:text-slate-100 pb-16 transition-colors duration-300">
+      {/* Top Header navbar */}
+      <Header
+        streak={progress.streak}
+        allQuestions={CATECHISM_DATA}
+        onSelectQuestion={handleSelectSearchedQuestion}
+        theme={theme}
+        onToggleTheme={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
+      />
+
+      {/* Main Container */}
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8">
+        
+        {/* Navigation Breadcrumb / quick tab switcher */}
+        <div className="flex items-center gap-2 text-xs font-semibold text-gray-400 dark:text-slate-500 mb-6 font-sans">
+          <button 
+            onClick={() => setView('dashboard')} 
+            className="hover:text-blue-500 flex items-center gap-1.5 focus:outline-none"
+          >
+            <LayoutDashboard className="h-3.5 w-3.5" />
+            <span>Trang Chủ</span>
+          </button>
+          {view !== 'dashboard' && (
+            <>
+              <ChevronRight className="h-3 w-3" />
+              <span className="text-gray-700 dark:text-slate-300 font-bold capitalize">
+                {view === 'browse' ? 'Danh mục bài học' : view === 'memory' ? 'Luyện Flashcard' : 'Thi trắc nghiệm'}
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* View Switcher content */}
+        <div>
+          {view === 'dashboard' && (
+            <Dashboard
+              progress={progress}
+              totalQuestions={CATECHISM_DATA.length}
+              onNavigate={setView}
+            />
+          )}
+
+          {view === 'browse' && (
+            <BrowseMode
+              progress={progress}
+              toggleLearnedStatus={toggleLearnedStatus}
+              searchedQuestion={searchedQuestion}
+              clearSearchedQuestion={() => setSearchedQuestion(null)}
+            />
+          )}
+
+          {view === 'memory' && (
+            <MemoryMode
+              progress={progress}
+              toggleLearnedStatus={toggleLearnedStatus}
+              allQuestions={CATECHISM_DATA}
+            />
+          )}
+
+          {view === 'quiz' && (
+            <QuizMode
+              allQuestions={CATECHISM_DATA}
+              progress={progress}
+              onSaveQuizResult={handleSaveQuizResult}
+            />
+          )}
+        </div>
+      </main>
+
+      {/* Persistent Bottom Tab bar on mobile to change modes easily */}
+      <div className="fixed bottom-0 z-40 w-full border-t border-gray-150 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl flex justify-around py-2.5 sm:py-3.5 lg:hidden">
+        <button
+          onClick={() => setView('dashboard')}
+          className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
+            view === 'dashboard' ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-slate-500'
+          }`}
+        >
+          <LayoutDashboard className="h-5 w-5" />
+          <span>Dashboard</span>
+        </button>
+        <button
+          onClick={() => setView('browse')}
+          className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
+            view === 'browse' ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-slate-500'
+          }`}
+        >
+          <BookOpen className="h-5 w-5" />
+          <span>Danh mục</span>
+        </button>
+        <button
+          onClick={() => setView('memory')}
+          className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
+            view === 'memory' ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-slate-500'
+          }`}
+        >
+          <Layers className="h-5 w-5" />
+          <span>Flashcard</span>
+        </button>
+        <button
+          onClick={() => setView('quiz')}
+          className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
+            view === 'quiz' ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-slate-500'
+          }`}
+        >
+          <HelpCircle className="h-5 w-5" />
+          <span>Trắc nghiệm</span>
+        </button>
+      </div>
+    </div>
+  );
+}
