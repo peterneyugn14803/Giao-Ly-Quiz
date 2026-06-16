@@ -2,7 +2,23 @@ import { QuestionItem } from './types';
 import { CATECHISM_DATA as PARSED_DATA } from './data/catechism';
 
 // Merged database of all parsed Catechism questions
-export const CATECHISM_DATA: QuestionItem[] = PARSED_DATA;
+export const CATECHISM_DATA: QuestionItem[] = (() => {
+  if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+    try {
+      const cached = localStorage.getItem('catechism_data');
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (e) {
+      console.error("Failed to parse cached catechism data", e);
+    }
+    
+    // No cache or error, use parsed data and cache it
+    localStorage.setItem('catechism_data', JSON.stringify(PARSED_DATA));
+  }
+  
+  return PARSED_DATA;
+})();
 
 // Grouping helpers for Browse Mode
 export interface LessonGroup {

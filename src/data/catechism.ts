@@ -7,7 +7,7 @@ export const CATECHISM_DATA: QuestionItem[] = [
     "chapter": "CHƯƠNG MỘT - CON NGƯỜI CÓ KHẢ NĂNG ĐÓN NHẬN THIÊN CHÚA",
     "lesson": "BÀI 1 – THIÊN CHÚA CHO CHÚNG TA NHẬN BIẾT NGÀI",
     "question": "Con ngựơì được Thiên Chúa dựng nên dể làm gì?",
-    "answer": "Con ngựơì được Thiên Chúa dựng nên dể sống hạnh phúc với Ngài.",
+    "answer": "Con người được Thiên Chúa dựng nên dể sống hạnh phúc với Ngài.",
     "referenceCode": "1"
   },
   {

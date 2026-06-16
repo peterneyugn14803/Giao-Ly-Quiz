@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, Layers, HelpCircle, LayoutDashboard, ChevronRight, Share2 } from 'lucide-react';
+import { BookOpen, Layers, HelpCircle, LayoutDashboard, ChevronRight, Share2, Brain } from 'lucide-react';
 import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
 import { BrowseMode } from './components/BrowseMode';
@@ -7,6 +7,7 @@ import { MemoryMode } from './components/MemoryMode';
 import { QuizMode } from './components/QuizMode';
 import { QuestionItem, UserProgress } from './types';
 import { CATECHISM_DATA } from './data';
+import { WritingQuiz } from './components/WritingQuiz';
 
 const LOCAL_STORAGE_KEY = 'giaoly_progress_v1';
 
@@ -20,7 +21,7 @@ const INITIAL_PROGRESS: UserProgress = {
 };
 
 export default function App() {
-  const [view, setView] = useState<'dashboard' | 'browse' | 'memory' | 'quiz'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'browse' | 'memory' | 'quiz' | 'writing'>('dashboard');
   const [progress, setProgress] = useState<UserProgress>(INITIAL_PROGRESS);
   const [searchedQuestion, setSearchedQuestion] = useState<QuestionItem | null>(null);
 
@@ -172,7 +173,7 @@ export default function App() {
             <>
               <ChevronRight className="h-3 w-3" />
               <span className="text-gray-700 dark:text-slate-300 font-bold capitalize">
-                {view === 'browse' ? 'Danh mục bài học' : view === 'memory' ? 'Luyện Flashcard' : 'Thi trắc nghiệm'}
+                {view === 'browse' ? 'Danh mục bài học' : view === 'memory' ? 'Luyện Flashcard' : view === 'quiz' ? 'Thi trắc nghiệm' : 'Thi tự luận'}
               </span>
             </>
           )}
@@ -210,6 +211,15 @@ export default function App() {
               allQuestions={CATECHISM_DATA}
               progress={progress}
               onSaveQuizResult={handleSaveQuizResult}
+            />
+          )}
+
+          {view === 'writing' && (
+            <WritingQuiz
+              allQuestions={CATECHISM_DATA}
+              progress={progress}
+              onSaveQuizResult={handleSaveQuizResult}
+              toggleLearnedStatus={toggleLearnedStatus}
             />
           )}
         </div>
@@ -252,6 +262,15 @@ export default function App() {
         >
           <HelpCircle className="h-5 w-5" />
           <span>Trắc nghiệm</span>
+        </button>
+        <button
+          onClick={() => setView('writing')}
+          className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
+            view === 'writing' ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-slate-500'
+          }`}
+        >
+          <Brain className={`h-5 w-5 ${view === 'writing' ? 'text-violet-500 animate-pulse' : ''}`} />
+          <span>Tự luận AI</span>
         </button>
       </div>
     </div>

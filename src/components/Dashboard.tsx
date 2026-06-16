@@ -1,11 +1,11 @@
 import React from 'react';
-import { BookOpen, HelpCircle, Inbox, Award, ArrowRight, Zap, Target, BookOpenCheck } from 'lucide-react';
+import { BookOpen, HelpCircle, Inbox, Award, ArrowRight, Zap, Target, BookOpenCheck, Brain } from 'lucide-react';
 import { QuestionItem, UserProgress } from '../types';
 
 interface DashboardProps {
   progress: UserProgress;
   totalQuestions: number;
-  onNavigate: (mode: 'browse' | 'memory' | 'quiz') => void;
+  onNavigate: (mode: 'browse' | 'memory' | 'quiz' | 'writing') => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ progress, totalQuestions, onNavigate }) => {
@@ -121,7 +121,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ progress, totalQuestions, 
       {/* Mode Selectors */}
       <div className="space-y-4">
         <h3 className="text-lg font-bold tracking-tight text-gray-800 dark:text-slate-100">CÁC CHẾ ĐỘ HỌC TẬP CHUYÊN SÂU</h3>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {/* Mode 1: Browse Case */}
           <button
             onClick={() => onNavigate('browse')}
@@ -175,6 +175,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ progress, totalQuestions, 
             </p>
             <div className="mt-6 flex items-center gap-1.5 text-xs font-bold text-emerald-500 dark:text-emerald-400">
               <span>Vào thi đấu</span>
+              <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </button>
+
+          {/* Mode 4: Writing Case */}
+          <button
+            onClick={() => onNavigate('writing')}
+            className="group relative flex flex-col text-left rounded-3xl border border-gray-150 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 shadow-sm transition-all hover:-translate-y-1 hover:border-violet-200 dark:hover:border-violet-900 hover:shadow-lg hover:shadow-violet-500/5 focus:outline-none"
+          >
+            <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-50 dark:bg-violet-950/40 text-violet-500 dark:text-violet-400 group-hover:bg-violet-550 group-hover:text-white dark:group-hover:text-white transition-all duration-300">
+              <Brain className="h-6 w-6" />
+            </div>
+            <h4 className="text-lg font-bold text-gray-800 dark:text-slate-100 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">Thi Tự Luận AI</h4>
+            <p className="text-xs text-gray-400 dark:text-slate-500 font-mono mt-1 font-semibold uppercase tracking-wider">Writing Mode</p>
+            <p className="mt-3 text-sm text-gray-500 dark:text-slate-400 leading-relaxed">
+              Nhập câu trả lời bằng gõ bàn phím. Sử dụng trí tuệ nhân tạo Gemini đánh giá theo ý chính thần học và tương đồng từ đồng nghĩa.
+            </p>
+            <div className="mt-6 flex items-center gap-1.5 text-xs font-bold text-violet-500 dark:text-violet-400">
+              <span>Bắt đầu thi gõ</span>
               <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-1 transition-transform" />
             </div>
           </button>
