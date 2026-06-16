@@ -1,237 +1,147 @@
 # 📚 Cùng Học Giáo Lý (CungHocGiaoLy)
 
-Ứng dụng web hỗ trợ **học tập, tra cứu và hệ thống hóa kiến thức Giáo lý Công giáo** theo hướng trực quan, khoa học và dễ tiếp cận trên nhiều thiết bị.
+Ứng dụng web hỗ trợ **học tập, tra cứu và hệ thống hóa kiến thức Giáo lý Công giáo** theo hướng trực quan, khoa học và dễ tiếp cận trên mọi thiết bị.
 
 <p align="center">
-  <a href="https://cunghocgiaoly-521022870619.asia-southeast1.run.app" target="_blank">
-    <img src="https://img.shields.io/badge/🚀_Live_Demo-Truy_cập_ngay-blue?style=for-the-badge" alt="Live Demo">
+  <a href="https://cunghocgiaoly-521022870619.asia-southeast1.run.app">
+    <img src="https://img.shields.io/badge/🚀_Live_Demo-Truy_cập_ngay-blue?style=for-the-badge" alt="Live Demo" />
   </a>
 </p>
 
-![Giao diện ứng dụng](path/to/screenshot.png)
+---
+
+## 🎯 Mục tiêu dự án
+
+Cùng Học Giáo Lý được xây dựng nhằm giải quyết nhu cầu:
+
+* Học tập và ôn luyện Giáo lý một cách có hệ thống.
+* Tra cứu kiến thức nhanh chóng theo chủ đề.
+* Tổ chức nội dung rõ ràng theo phần, chương và bài học.
+* Hỗ trợ người học tiếp cận kiến thức trên cả máy tính và điện thoại.
+
+Thay vì đọc tài liệu rời rạc, người dùng có thể học tập trong một môi trường trực quan với cấu trúc nội dung thống nhất.
 
 ---
 
-## 🎯 Giới thiệu
+## 🌐 Truy cập ứng dụng
 
-**Cùng Học Giáo Lý** được xây dựng nhằm hỗ trợ người học tiếp cận và ôn tập kiến thức Giáo lý một cách có hệ thống. Ứng dụng tập trung vào trải nghiệm đọc, tra cứu nhanh và điều hướng nội dung hiệu quả, giúp người dùng dễ dàng theo dõi quá trình học tập của mình.
+**Live Demo**
 
-**Live Demo:**
 👉 https://cunghocgiaoly-521022870619.asia-southeast1.run.app
 
 ---
 
-## ✨ Các tính năng cốt lõi
+## 🖼️ Giao diện
 
-### 📖 Hệ thống bài học & tài liệu
+### Trang chủ
 
-* Tổ chức nội dung theo danh mục, phần và chương rõ ràng.
-* Hỗ trợ tra cứu nhanh các chủ đề Giáo lý.
-* Cấu trúc nội dung trực quan, dễ mở rộng.
+![Giao diện ứng dụng](path/to/homepage.png)
 
-### 🧭 Trình xem nội dung tương tác
+### Danh mục bài học
 
-* Giao diện tập trung vào nội dung học tập.
-* Điều hướng giữa các bài học nhanh chóng.
-* Hạn chế yếu tố gây phân tán khi đọc.
+![Danh mục bài học](path/to/lessons.png)
+
+### Nội dung học tập
+
+![Nội dung bài học](path/to/content.png)
+
+---
+
+## ✨ Tính năng nổi bật
+
+### 📚 Hệ thống bài học
+
+* Tổ chức nội dung theo cấu trúc phần, mục và chương.
+* Điều hướng dễ dàng giữa các chủ đề.
+* Hỗ trợ tra cứu nhanh nội dung cần học.
+
+### 🔎 Tìm kiếm nội dung
+
+* Tìm kiếm bài học theo từ khóa.
+* Truy cập nhanh đến nội dung liên quan.
+* Giảm thời gian tìm kiếm tài liệu.
+
+### 📖 Trải nghiệm đọc tối ưu
+
+* Giao diện tập trung vào nội dung.
+* Typography dễ đọc.
+* Hạn chế yếu tố gây xao nhãng.
 
 ### 📱 Responsive Design
 
-* Tối ưu hiển thị trên:
+* Tương thích điện thoại.
+* Tương thích máy tính bảng.
+* Tương thích màn hình desktop.
 
-  * Điện thoại di động
-  * Máy tính bảng
-  * Máy tính để bàn
-* Trải nghiệm nhất quán trên nhiều kích thước màn hình.
+### ⚡ Hiệu năng
 
-### ⚡ Hiệu năng tối ưu
-
-* Tải trang nhanh với cơ chế render hiện đại của Next.js.
-* Điều hướng mượt mà giữa các nội dung.
-* Tối ưu tài nguyên tĩnh và hiệu suất giao diện.
+* Tải trang nhanh.
+* Điều hướng mượt mà.
+* Tối ưu trải nghiệm người dùng trên nhiều thiết bị.
 
 ---
 
-## 🛠️ Công nghệ & Kiến trúc
+## 🏗️ Công nghệ sử dụng
 
-| Thành phần       | Công nghệ                                     |
-| ---------------- | --------------------------------------------- |
-| Frontend         | Next.js                                       |
-| UI Library       | React                                         |
-| Ngôn ngữ         | TypeScript                                    |
-| Styling          | Tailwind CSS                                  |
-| Routing          | App Router (Next.js)                          |
-| Data Fetching    | Server Components / Client Components         |
-| State Management | React Context / Zustand (tuỳ nhu cầu mở rộng) |
-| Deployment       | Docker                                        |
-| Cloud Platform   | Google Cloud Run                              |
+| Thành phần    | Công nghệ        |
+| ------------- | ---------------- |
+| Framework     | Next.js          |
+| UI Library    | React            |
+| Ngôn ngữ      | TypeScript       |
+| CSS Framework | Tailwind CSS     |
+| Routing       | App Router       |
+| Triển khai    | Docker           |
+| Hosting       | Google Cloud Run |
 
 ---
 
-## 🚀 Hướng dẫn cài đặt & chạy local
-
-### Yêu cầu hệ thống
-
-* Node.js >= 18
-* npm / yarn / pnpm
-
-### 1. Clone mã nguồn
-
-```bash
-git clone https://github.com/your-username/cunghocgiaoly.git
-
-cd cunghocgiaoly
-```
-
-### 2. Cài đặt thư viện
-
-```bash
-npm install
-```
-
-Hoặc:
-
-```bash
-yarn install
-```
-
-Hoặc:
-
-```bash
-pnpm install
-```
-
-### 3. Khởi chạy môi trường phát triển
-
-```bash
-npm run dev
-```
-
-Mặc định ứng dụng sẽ chạy tại:
+## 📁 Kiến trúc dự án
 
 ```text
-http://localhost:3000
+app/
+├── page.tsx
+├── lessons/
+├── categories/
+├── search/
+
+components/
+├── layout/
+├── navigation/
+├── cards/
+
+public/
+├── images/
+├── icons/
+
+lib/
+hooks/
+services/
+types/
 ```
 
-### 4. Build production
-
-```bash
-npm run build
-```
-
-### 5. Chạy bản production
-
-```bash
-npm run start
-```
+Dự án được tổ chức theo hướng module hóa nhằm đảm bảo khả năng mở rộng và bảo trì lâu dài.
 
 ---
 
-## 📁 Cấu trúc thư mục
+## 🚀 Định hướng phát triển
 
-```text
-cunghocgiaoly/
-│
-├── app/                    # App Router (Next.js)
-│   ├── layout.tsx
-│   ├── page.tsx
-│   ├── lessons/
-│   ├── categories/
-│   └── search/
-│
-├── components/             # UI Components dùng chung
-│   ├── layout/
-│   ├── navigation/
-│   ├── cards/
-│   └── forms/
-│
-├── lib/                    # Utility functions
-│
-├── hooks/                  # Custom React Hooks
-│
-├── services/               # API & data services
-│
-├── public/                 # Static assets
-│   ├── images/
-│   ├── icons/
-│   └── favicon.ico
-│
-├── styles/
-│   └── globals.css
-│
-├── types/                  # TypeScript types
-│
-├── docker/
-│
-├── Dockerfile
-├── next.config.js
-├── tailwind.config.ts
-├── tsconfig.json
-├── package.json
-└── README.md
-```
+Các tính năng đang được nghiên cứu và mở rộng:
+
+* Hệ thống Flashcard học thuộc.
+* Trắc nghiệm đánh giá kiến thức.
+* Theo dõi tiến độ học tập.
+* AI hỗ trợ giải thích nội dung Giáo lý.
+* Học tập theo lộ trình cá nhân hóa.
+* Dashboard thống kê quá trình học.
 
 ---
 
-## 🧪 Scripts
+## 👨‍💻 Tác giả
 
-| Lệnh            | Mô tả                        |
-| --------------- | ---------------------------- |
-| `npm run dev`   | Chạy môi trường phát triển   |
-| `npm run build` | Build production             |
-| `npm run start` | Chạy production build        |
-| `npm run lint`  | Kiểm tra chất lượng mã nguồn |
-
----
-
-## 🤝 Đóng góp
-
-Mọi đóng góp đều được chào đón.
-
-### Quy trình đề xuất
-
-1. Fork repository.
-2. Tạo branch mới.
-
-```bash
-git checkout -b feature/ten-tinh-nang
-```
-
-3. Commit thay đổi.
-
-```bash
-git commit -m "feat: thêm tính năng mới"
-```
-
-4. Push branch.
-
-```bash
-git push origin feature/ten-tinh-nang
-```
-
-5. Tạo Pull Request.
+Dự án được phát triển với mục tiêu xây dựng một nền tảng học tập Giáo lý hiện đại, trực quan và dễ tiếp cận cho cộng đồng người học.
 
 ---
 
 ## 📄 License
 
-Dự án được phát hành theo giấy phép **MIT License**.
-
-Xem thêm tại file:
-
-```text
-LICENSE
-```
-
----
-
-## 🌐 Demo
-
-**Website:**
-https://cunghocgiaoly-521022870619.asia-southeast1.run.app
-
----
-
-<p align="center">
-  Được xây dựng bằng Next.js, TypeScript và Tailwind CSS.
-</p>
+MIT License
