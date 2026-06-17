@@ -8,6 +8,7 @@ import { QuizMode } from './components/QuizMode';
 import { QuestionItem, UserProgress } from './types';
 import { CATECHISM_DATA } from './data';
 import { WritingQuiz } from './components/WritingQuiz';
+import KinhSangSoiModal from './components/KinhSangSoiModal';
 
 const LOCAL_STORAGE_KEY = 'giaoly_progress_v1';
 
@@ -148,6 +149,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950 text-gray-800 dark:text-slate-100 pb-16 transition-colors duration-300">
+      <KinhSangSoiModal />
       {/* Top Header navbar */}
       <Header
         streak={progress.streak}

@@ -34,10 +34,24 @@ const getTheme = (color: string) => {
   }
 };
 
-const getSidebarItemsForPart = (part: any) => part.sections.map((sec: any) => ({
-  sectionName: sec.name,
-  items: sec.chapters.map((ch: any) => ({ key: `chapter-${ch.name}`, label: ch.name, type: 'chapter', lessons: ch.lessons }))
-}));
+const getSidebarItemsForPart = (part: any) => [
+  ...part.sections.flatMap((sec: any) => [
+    ...sec.chapters.map((ch: any) => ({
+      key: `chapter-${ch.name}`,
+      label: ch.name,
+      type: 'chapter',
+      lessons: ch.lessons,
+      sectionName: sec.name
+    })),
+    ...sec.lessonsWithoutChapter.map((les: any) => ({
+      key: `lesson-${les.lessonId}`,
+      label: les.name,
+      type: 'lesson',
+      lessons: [les],
+      sectionName: sec.name
+    }))
+  ])
+];
 
 const getProgressForPart = (part: StructuredPart, progress: UserProgress) => {
   const allQuestions = part.sections.flatMap(s => s.chapters.flatMap(c => c.lessons.flatMap(l => l.questions)));
@@ -71,10 +85,10 @@ const PartCard: React.FC<{ part: StructuredPart; progress: any; onClick: () => v
   );
 };
   
-const ChapterCard: React.FC<{ chapter: any; progress: any; onClick: () => void }> = ({ chapter, progress, onClick }) => (
-  <button onClick={onClick} className="w-full flex items-center justify-between p-5 rounded-2xl border border-gray-150 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:border-blue-200 dark:hover:border-slate-700">
-    <div className="text-left"><h4 className="font-bold">{chapter.label}</h4><p className="text-xs text-gray-400 mt-1">{progress.percentage}% hoàn thành • {progress.learnedCount}/{progress.totalCount} câu</p></div>
-    <ChevronRight className="text-gray-400" />
+const ItemCard: React.FC<{ label: string; progress: any; onClick: () => void }> = ({ label, progress, onClick }) => (
+  <button onClick={onClick} className="w-full flex items-center justify-between p-4 rounded-xl border border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:border-blue-200 dark:hover:border-slate-700">
+    <div className="text-left"><h4 className="font-semibold text-sm">{label}</h4><p className="text-[10px] text-gray-400 mt-0.5">{progress.percentage}% hoàn thành</p></div>
+    <ChevronRight className="h-4 w-4 text-gray-400" />
   </button>
 );
 
@@ -122,14 +136,28 @@ export const BrowseMode: React.FC<BrowseModeProps> = ({ progress, toggleLearnedS
   }, []);
 
   const activePart = structuredParts[activePartIndex];
-  const sidebarSections = getSidebarItemsForPart(activePart);
-  const currentItem = sidebarSections.flatMap(g => g.items).find(i => i.key === activeItemKey);
+  const allItems = React.useMemo(() => getSidebarItemsForPart(activePart), [activePart]);
+  const [activeLesson, setActiveLesson] = useState<StructuredLesson | null>(null);
+  const currentItem = React.useMemo(() => allItems.find(i => i.key === activeItemKey), [allItems, activeItemKey]);
+
+  const lastChapterKeyRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    if (currentItem?.type === 'lesson') {
+      const newLesson = currentItem.lessons[0];
+      setActiveLesson(prev => (prev?.lessonId !== newLesson.lessonId ? newLesson : prev));
+      lastChapterKeyRef.current = null;
+    } else if (currentItem?.type === 'chapter' && currentItem.key !== lastChapterKeyRef.current) {
+      setActiveLesson(prev => (prev !== null ? null : prev));
+      lastChapterKeyRef.current = currentItem.key;
+    }
+  }, [currentItem?.key]);
 
   // Desktop View
   if (!isMobile) {
     return (
       <div className="grid grid-cols-12 gap-8 pt-4 h-[calc(100vh-100px)]">
-        {/* Left Sidebar (Parts + Chapters) */}
+        {/* Left Sidebar */}
         <div className="col-span-4 space-y-6 overflow-y-auto">
           <div className="grid grid-cols-2 gap-2">
             {structuredParts.map((part, pIdx) => (
@@ -139,23 +167,39 @@ export const BrowseMode: React.FC<BrowseModeProps> = ({ progress, toggleLearnedS
             ))}
           </div>
           <div className="space-y-4">
-             {sidebarSections.flatMap(s => s.items).map(item => (
-                <ChapterCard key={item.key} chapter={item} progress={getProgressForChapter(item, progress)} onClick={() => setActiveItemKey(item.key)} />
+             {allItems.map(item => (
+                <ItemCard key={item.key} label={item.label} progress={getProgressForChapter(item, progress)} onClick={() => setActiveItemKey(item.key)} />
               ))}
           </div>
         </div>
-        {/* Right Content (Questions) */}
+        {/* Right Content */}
         <div className="col-span-8 overflow-y-auto space-y-3">
-          <h2 className="text-2xl font-black">{currentItem?.label || "Chọn chương"}</h2>
-           {currentItem?.lessons.flatMap(l => l.questions).map(q => (
-             <QuestionItemView 
-               key={q.id} q={q} 
-               isLearned={progress.learned.includes(q.id)} 
-               toggleLearned={() => toggleLearnedStatus(q.id)}
-               isExpanded={!!expandedQuestions[q.id]}
-               onToggle={() => setExpandedQuestions(prev => ({ ...prev, [q.id]: !prev[q.id] }))}
-             />
-           ))}
+          {currentItem ? (
+            activeLesson ? (
+              <>
+                 <button onClick={() => setActiveLesson(null)} className="text-sm text-blue-600 mb-4 flex items-center gap-1">&larr; Quay lại {currentItem.label}</button>
+                 <h2 className="text-2xl font-black">{activeLesson.name}</h2>
+                 {activeLesson.questions.map((q: any) => (
+                     <QuestionItemView 
+                       key={q.id} q={q} 
+                       isLearned={progress.learned.includes(q.id)} 
+                       toggleLearned={() => toggleLearnedStatus(q.id)}
+                       isExpanded={!!expandedQuestions[q.id]}
+                       onToggle={() => setExpandedQuestions(prev => ({ ...prev, [q.id]: !prev[q.id] }))}
+                     />
+                 ))}
+              </>
+            ) : currentItem.type === 'chapter' ? (
+              <>
+                <h2 className="text-2xl font-black">{currentItem.label}</h2>
+                {currentItem.lessons.map((l: any) => (
+                  <ItemCard key={l.lessonId} label={l.name} progress={getProgressForChapter({ lessons: [l] }, progress)} onClick={() => setActiveLesson(l)} />
+                ))}
+              </>
+            ) : null
+          ) : (
+             <h2 className="text-2xl font-black">Chọn chương hoặc bài</h2>
+          )}
         </div>
       </div>
     );
@@ -174,7 +218,7 @@ export const BrowseMode: React.FC<BrowseModeProps> = ({ progress, toggleLearnedS
         <ArrowLeft className="h-4 w-4" /> Quay lại
       </button>
       <h2 className="text-xl font-black">{activePart.title}</h2>
-      {sidebarSections.flatMap(s => s.items).map(item => <ChapterCard key={item.key} chapter={item} progress={getProgressForChapter(item, progress)} onClick={() => { setActiveItemKey(item.key); setView('questions'); }} />)}
+      {allItems.map(item => <ItemCard key={item.key} label={item.label} progress={getProgressForChapter(item, progress)} onClick={() => { setActiveItemKey(item.key); setView('questions'); }} />)}
     </div>
   );
   return (

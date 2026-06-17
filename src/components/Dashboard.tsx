@@ -22,31 +22,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ progress, totalQuestions, 
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Hero Welcome banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-tr from-slate-900 via-slate-800 to-blue-950 text-white shadow-xl">
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_top_right,var(--tw-gradient-stops))] from-blue-400 via-transparent to-transparent" />
-        <div className="relative px-6 py-10 sm:px-12 sm:py-14 flex flex-col md:flex-row justify-between gap-8 items-start md:items-center">
-          <div className="space-y-3 max-w-lg">
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/20 px-3 py-1 text-xs font-semibold text-blue-300 backdrop-blur-md">
-              <Zap className="h-3.5 w-3.5" />
-              <span>Phương Pháp Spaced Repetition</span>
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white font-sans">
-              Đồng Hành Học Tập Giáo Lý Công Giáo
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-50 to-orange-100 dark:from-slate-900 dark:to-slate-800 text-slate-800 dark:text-slate-200 shadow-xl border border-amber-200 dark:border-amber-900/30">
+        <div className="relative px-6 py-10 sm:px-12 sm:py-14 flex flex-col md:flex-row justify-between gap-8 items-center">
+          <div className="flex-1 space-y-4 text-center md:text-left">
+            <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-amber-900 dark:text-amber-100 font-sans">
+              Xin Thánh Phaolô Lê Bảo Tịnh<br/>
+              <span className="text-xl sm:text-2xl font-medium text-amber-700 dark:text-amber-300">cầu nguyện, xin Chúa ban muôn ơn lành.</span>
             </h2>
-            <p className="text-slate-300 text-sm leading-relaxed">
-              Hệ thống hóa 650 câu hỏi & trả lời giúp bạn ghi nhớ và học thuộc lòng vững vàng thông qua Flashcard thông minh và trắc nghiệm thực tế.
+            <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed max-w-md mx-auto md:mx-0">
+               Cùng với sự bảo trợ của Thánh nhân, hãy bắt đầu hành trình học tập Giáo Lý Công Giáo của bạn một cách trọn vẹn và an yên.
             </p>
           </div>
 
-          {/* Quick Metrics */}
-          <div className="flex items-center gap-8 w-full md:w-auto">
-            <div className="text-center bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10 flex-1 md:flex-initial md:min-w-[100px]">
-              <span className="block text-3xl font-extrabold font-mono text-blue-300">{learnedPercent}%</span>
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold font-mono">Tiến độ thuộc</span>
-            </div>
-            <div className="text-center bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10 flex-1 md:flex-initial md:min-w-[100px]">
-              <span className="block text-3xl font-extrabold font-mono text-orange-400">{progress.streak}</span>
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold font-mono">Chuỗi ngày</span>
+          {/* Saint Image */}
+          <div className="shrink-0">
+            <div className="h-40 w-40 rounded-full border-4 border-amber-200 dark:border-amber-900 shadow-lg overflow-hidden bg-white">
+              <img 
+                src="/assets/saint-paul-le-bao-tinh.jpg" 
+                alt="Thánh Phaolô Lê Bảo Tịnh" 
+                className="h-full w-full object-cover"
+                referrerPolicy="no-referrer"
+              />
             </div>
           </div>
         </div>
