@@ -7,6 +7,7 @@ interface QuizModeProps {
   allQuestions: QuestionItem[];
   progress: UserProgress;
   onSaveQuizResult: (correct: number, total: number) => void;
+  zenMode?: boolean;
 }
 
 interface QuizQuestion {
@@ -18,7 +19,8 @@ interface QuizQuestion {
 export const QuizMode: React.FC<QuizModeProps> = ({
   allQuestions,
   progress,
-  onSaveQuizResult
+  onSaveQuizResult,
+  zenMode = false
 }) => {
   const [filterChapter, setFilterChapter] = useState<string>('all');
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
@@ -111,44 +113,46 @@ export const QuizMode: React.FC<QuizModeProps> = ({
   return (
     <div className="space-y-6 animate-fade-in max-w-xl mx-auto">
       {/* Intro and Filters */}
-      <div className="flex flex-col gap-4 border-b border-gray-150 dark:border-slate-800 pb-4">
-        <div>
-          <h2 className="text-xl font-bold text-gray-800 dark:text-slate-100 flex items-center gap-2">
-            <HelpCircle className="h-5 w-5 text-emerald-500" />
-            Trực Quan Trắc Nghiệm Có Điểm
-          </h2>
-          <p className="text-xs text-gray-500 dark:text-slate-400">Các đáp án gây nhiễu được tự động lọc tinh tế trong tầm cùng chương.</p>
-        </div>
-
-        {/* Filters */}
-        {!isFinished && quizQuestions.length > 0 && currentQuizIndex === 0 && !isAnswered && (
-          <div className="flex flex-col sm:flex-row gap-3">
-            <label className="text-xs font-semibold text-gray-400 dark:text-slate-500 self-center shrink-0 font-mono uppercase">Phạm Vi Thi:</label>
-            <select
-              value={filterChapter}
-              onChange={(e) => setFilterChapter(e.target.value)}
-              className="w-full rounded-2xl border border-gray-250 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-gray-700 dark:text-slate-200 outline-none focus:border-emerald-300 dark:focus:border-emerald-700/80 focus:ring-4 focus:ring-emerald-100 dark:focus:ring-emerald-950/20 max-w-md"
-            >
-              <option value="all">Ngẫu nhiên toàn bộ giáo trình</option>
-              {Object.entries(getGroupedCatechismByPart()).map(([partKey, partVal]) => {
-                const partLabel = partKey.startsWith('PHẦN THÚ') ? 'Phần I: Tuyên Xưng Đức Tin' :
-                                  partKey.includes('NHIỆM CỤC BÍ TÍCH') ? 'Phần II: Cử Hành Mầu Nhiệm Phụng Vụ' :
-                                  partKey.includes('ƠN GỌI CỦA CON NGƯỜI') ? 'Phần III: Đời Sống Đức Kitô' :
-                                  'Phần IV: Kinh Nguyện Kitô Giáo';
-                return (
-                  <optgroup label={partLabel} key={partKey} className="font-bold text-gray-400 dark:text-slate-500 bg-white dark:bg-slate-900 mt-2">
-                    {Object.keys(partVal.chapters).map((chapKey) => (
-                      <option key={chapKey} value={chapKey} className="font-normal text-gray-700 dark:text-slate-200 bg-white dark:bg-slate-900">
-                        {chapKey}
-                      </option>
-                    ))}
-                  </optgroup>
-                );
-              })}
-            </select>
+      {!zenMode && (
+        <div className="flex flex-col gap-4 border-b border-gray-150 dark:border-slate-800 pb-4">
+          <div>
+            <h2 className="text-xl font-bold text-gray-800 dark:text-slate-100 flex items-center gap-2">
+              <HelpCircle className="h-5 w-5 text-emerald-500" />
+              Trực Quan Trắc Nghiệm Có Điểm
+            </h2>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Các đáp án gây nhiễu được tự động lọc tinh tế trong tầm cùng chương.</p>
           </div>
-        )}
-      </div>
+
+          {/* Filters */}
+          {!isFinished && quizQuestions.length > 0 && currentQuizIndex === 0 && !isAnswered && (
+            <div className="flex flex-col sm:flex-row gap-3">
+              <label className="text-xs font-semibold text-gray-400 dark:text-slate-500 self-center shrink-0 font-mono uppercase">Phạm Vi Thi:</label>
+              <select
+                value={filterChapter}
+                onChange={(e) => setFilterChapter(e.target.value)}
+                className="w-full rounded-2xl border border-gray-250 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-gray-700 dark:text-slate-200 outline-none focus:border-emerald-300 dark:focus:border-emerald-700/80 focus:ring-4 focus:ring-emerald-100 dark:focus:ring-emerald-950/20 max-w-md"
+              >
+                <option value="all">Ngẫu nhiên toàn bộ giáo trình</option>
+                {Object.entries(getGroupedCatechismByPart()).map(([partKey, partVal]) => {
+                  const partLabel = partKey.startsWith('PHẦN THÚ') ? 'Phần I: Tuyên Xưng Đức Tin' :
+                                    partKey.includes('NHIỆM CỤC BÍ TÍCH') ? 'Phần II: Cử Hành Mầu Nhiệm Phụng Vụ' :
+                                    partKey.includes('ƠN GỌI CỦA CON NGƯỜI') ? 'Phần III: Đời Sống Đức Kitô' :
+                                    'Phần IV: Kinh Nguyện Kitô Giáo';
+                  return (
+                    <optgroup label={partLabel} key={partKey} className="font-bold text-gray-400 dark:text-slate-500 bg-white dark:bg-slate-900 mt-2">
+                      {Object.keys(partVal.chapters).map((chapKey) => (
+                        <option key={chapKey} value={chapKey} className="font-normal text-gray-700 dark:text-slate-200 bg-white dark:bg-slate-900">
+                          {chapKey}
+                        </option>
+                      ))}
+                    </optgroup>
+                  );
+                })}
+              </select>
+            </div>
+          )}
+        </div>
+      )}
 
       {isFinished ? (
         /* Completion Dashboard */

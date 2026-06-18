@@ -118,13 +118,15 @@ interface WritingQuizProps {
   progress: UserProgress;
   onSaveQuizResult?: (correct: number, total: number) => void;
   toggleLearnedStatus: (id: string, forceState?: 'learned' | 'needsReview') => void;
+  zenMode?: boolean;
 }
 
 export const WritingQuiz: React.FC<WritingQuizProps> = ({
   allQuestions,
   progress,
   onSaveQuizResult,
-  toggleLearnedStatus
+  toggleLearnedStatus,
+  zenMode = false
 }) => {
   // 1. Scope selection states
   const [filterChapter, setFilterChapter] = useState<string>('all');
@@ -324,28 +326,40 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
   return (
     <div className="w-full max-w-4xl mx-auto space-y-8 animate-fade-in" id="writing-exam-root">
       
-      {/* 1. QUIZ SETTING HEADER VIEW (Before clicking Start) */}
+      {/* 2. QUIZ SETTING HEADER VIEW (Before clicking Start) */}
       {!quizStarted && (
         <div className="bg-white dark:bg-slate-900 border border-gray-150 dark:border-slate-850 rounded-3xl p-6 sm:p-10 shadow-sm space-y-6">
-          <div className="flex flex-col md:flex-row gap-6 items-start md:items-center justify-between">
-            <div className="space-y-2 flex-1">
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-600 dark:text-blue-400">
-                <Brain className="h-4 w-4" />
-                <span>Năng lực thi gõ Tự Luận thông minh</span>
+          {!zenMode ? (
+            <div className="flex flex-col md:flex-row gap-6 items-start md:items-center justify-between">
+              <div className="space-y-2 flex-1">
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-600 dark:text-blue-400">
+                  <Brain className="h-4 w-4" />
+                  <span>Năng lực thi gõ Tự Luận thông minh</span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-black text-gray-800 dark:text-slate-100 tracking-tight">
+                  Chế Độ Thi Tự Luận & Gõ Câu Trả Lời
+                </h2>
+                <p className="text-gray-550 dark:text-slate-405 text-xs sm:text-sm leading-relaxed">
+                  Tập luyện viết câu trả lời trực tiếp. Hệ thống hỗ trợ so khớp <strong>Từ khóa cốt lõi</strong> thông minh cục bộ hoặc sử dụng <strong>Trí Tuệ Nhân Tạo AI Gemini</strong> để chấm điểm theo ý chính, chấp nhận từ đồng nghĩa, khuyến khích sự hiểu biết sâu xa.
+                </p>
               </div>
-              <h2 className="text-xl sm:text-2xl font-black text-gray-800 dark:text-slate-100 tracking-tight">
-                Chế Độ Thi Tự Luận & Gõ Câu Trả Lời
-              </h2>
-              <p className="text-gray-550 dark:text-slate-405 text-xs sm:text-sm leading-relaxed">
-                Tập luyện viết câu trả lời trực tiếp. Hệ thống hỗ trợ so khớp <strong>Từ khóa cốt lõi</strong> thông minh cục bộ hoặc sử dụng <strong>Trí Tuệ Nhân Tạo AI Gemini</strong> để chấm điểm theo ý chính, chấp nhận từ đồng nghĩa, khuyến khích sự hiểu biết sâu xa.
-              </p>
+              <div className="bg-orange-50/40 dark:bg-orange-950/20 p-5 rounded-2xl border border-orange-100/30 shrink-0 w-full md:w-auto text-center md:text-left">
+                <div className="text-xs font-bold text-orange-600 dark:text-orange-400 mb-1">MỤC TIÊU PHÒNG THI</div>
+                <div className="text-2xl font-black font-mono text-orange-700 dark:text-orange-400">10 / 10</div>
+                <div className="text-[10px] text-gray-400 dark:text-slate-500 font-bold tracking-widest font-mono uppercase">Câu tự luận ngẫu nhiên</div>
+              </div>
             </div>
-            <div className="bg-orange-50/40 dark:bg-orange-950/20 p-5 rounded-2xl border border-orange-100/30 shrink-0 w-full md:w-auto text-center md:text-left">
-              <div className="text-xs font-bold text-orange-600 dark:text-orange-400 mb-1">MỤC TIÊU PHÒNG THI</div>
-              <div className="text-2xl font-black font-mono text-orange-700 dark:text-orange-400">10 / 10</div>
-              <div className="text-[10px] text-gray-400 dark:text-slate-500 font-bold tracking-widest font-mono uppercase">Câu tự luận ngẫu nhiên</div>
+          ) : (
+            <div className="text-center space-y-1 py-1.5">
+              <div className="inline-flex items-center justify-center gap-2 text-yellow-500">
+                <Sparkles className="h-5 w-5 animate-pulse" />
+                <h2 className="text-base font-black text-gray-800 dark:text-slate-150 uppercase tracking-widest">
+                  LUYỆN THI TỰ LUẬN TẬP TRUNG
+                </h2>
+              </div>
+              <p className="text-[10px] text-gray-400 dark:text-slate-500 font-bold uppercase tracking-wider">Chế độ tịnh tâm Zen Mode đang bật</p>
             </div>
-          </div>
+          )}
 
           <hr className="border-gray-150 dark:border-slate-850" />
 

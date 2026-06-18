@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, Layers, HelpCircle, LayoutDashboard, ChevronRight, Share2, Brain } from 'lucide-react';
+import { BookOpen, Layers, HelpCircle, LayoutDashboard, ChevronRight, Share2, Brain, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
 import { BrowseMode } from './components/BrowseMode';
@@ -25,6 +26,13 @@ export default function App() {
   const [view, setView] = useState<'dashboard' | 'browse' | 'memory' | 'quiz' | 'writing'>('dashboard');
   const [progress, setProgress] = useState<UserProgress>(INITIAL_PROGRESS);
   const [searchedQuestion, setSearchedQuestion] = useState<QuestionItem | null>(null);
+  const [zenMode, setZenMode] = useState<boolean>(() => {
+    return localStorage.getItem('giaoly_zen_mode') === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('giaoly_zen_mode', zenMode ? 'true' : 'false');
+  }, [zenMode]);
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem('theme');
@@ -147,134 +155,211 @@ export default function App() {
     setView('browse');
   };
 
+  const isZenActive = zenMode && view !== 'dashboard';
+
   return (
-    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950 text-gray-800 dark:text-slate-100 pb-16 transition-colors duration-300">
+    <div className={`min-h-screen bg-slate-50/50 dark:bg-slate-950 text-gray-800 dark:text-slate-100 ${isZenActive ? 'pb-8' : 'pb-16'} transition-colors duration-300`}>
       <KinhSangSoiModal />
       {/* Top Header navbar */}
-      <Header
-        streak={progress.streak}
-        allQuestions={CATECHISM_DATA}
-        onSelectQuestion={handleSelectSearchedQuestion}
-        theme={theme}
-        onToggleTheme={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
-      />
+      {!isZenActive && (
+        <Header
+          streak={progress.streak}
+          allQuestions={CATECHISM_DATA}
+          onSelectQuestion={handleSelectSearchedQuestion}
+          theme={theme}
+          onToggleTheme={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
+          zenMode={zenMode}
+          onToggleZenMode={() => setZenMode(prev => !prev)}
+        />
+      )}
 
       {/* Main Container */}
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8">
+      <main className={`mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 ${isZenActive ? 'pt-12 sm:pt-20 pb-12' : 'pt-8'}`}>
         
         {/* Navigation Breadcrumb / quick tab switcher */}
-        <div className="flex items-center gap-2 text-xs font-semibold text-gray-400 dark:text-slate-500 mb-6 font-sans">
-          <button 
-            onClick={() => setView('dashboard')} 
-            className="hover:text-blue-500 flex items-center gap-1.5 focus:outline-none"
-          >
-            <LayoutDashboard className="h-3.5 w-3.5" />
-            <span>Trang Chủ</span>
-          </button>
-          {view !== 'dashboard' && (
-            <>
-              <ChevronRight className="h-3 w-3" />
-              <span className="text-gray-700 dark:text-slate-300 font-bold capitalize">
-                {view === 'browse' ? 'Danh mục bài học' : view === 'memory' ? 'Luyện Flashcard' : view === 'quiz' ? 'Thi trắc nghiệm' : 'Thi tự luận'}
-              </span>
-            </>
-          )}
-        </div>
+        {!isZenActive && (
+          <div className="flex items-center gap-2 text-xs font-semibold text-gray-400 dark:text-slate-500 mb-6 font-sans">
+            <button 
+              onClick={() => setView('dashboard')} 
+              className="hover:text-blue-500 flex items-center gap-1.5 focus:outline-none"
+            >
+              <LayoutDashboard className="h-3.5 w-3.5" />
+              <span>Trang Chủ</span>
+            </button>
+            {view !== 'dashboard' && (
+              <>
+                <ChevronRight className="h-3 w-3" />
+                <span className="text-gray-700 dark:text-slate-300 font-bold capitalize">
+                  {view === 'browse' ? 'Danh mục bài học' : view === 'memory' ? 'Luyện Flashcard' : view === 'quiz' ? 'Thi trắc nghiệm' : 'Thi tự luận'}
+                </span>
+              </>
+            )}
+          </div>
+        )}
 
         {/* View Switcher content */}
-        <div>
-          {view === 'dashboard' && (
-            <Dashboard
-              progress={progress}
-              totalQuestions={CATECHISM_DATA.length}
-              onNavigate={setView}
-            />
-          )}
+        <div className="overflow-hidden">
+          <AnimatePresence mode="wait">
+            {view === 'dashboard' && (
+              <motion.div
+                key="dashboard"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.22, ease: "easeOut" }}
+              >
+                <Dashboard
+                  progress={progress}
+                  totalQuestions={CATECHISM_DATA.length}
+                  onNavigate={setView}
+                />
+              </motion.div>
+            )}
 
-          {view === 'browse' && (
-            <BrowseMode
-              progress={progress}
-              toggleLearnedStatus={toggleLearnedStatus}
-              searchedQuestion={searchedQuestion}
-              clearSearchedQuestion={() => setSearchedQuestion(null)}
-            />
-          )}
+            {view === 'browse' && (
+              <motion.div
+                key="browse"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.22, ease: "easeOut" }}
+              >
+                <BrowseMode
+                  progress={progress}
+                  toggleLearnedStatus={toggleLearnedStatus}
+                  searchedQuestion={searchedQuestion}
+                  clearSearchedQuestion={() => setSearchedQuestion(null)}
+                  zenMode={isZenActive}
+                />
+              </motion.div>
+            )}
 
-          {view === 'memory' && (
-            <MemoryMode
-              progress={progress}
-              toggleLearnedStatus={toggleLearnedStatus}
-              allQuestions={CATECHISM_DATA}
-            />
-          )}
+            {view === 'memory' && (
+              <motion.div
+                key="memory"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.22, ease: "easeOut" }}
+              >
+                <MemoryMode
+                  progress={progress}
+                  toggleLearnedStatus={toggleLearnedStatus}
+                  allQuestions={CATECHISM_DATA}
+                  zenMode={isZenActive}
+                />
+              </motion.div>
+            )}
 
-          {view === 'quiz' && (
-            <QuizMode
-              allQuestions={CATECHISM_DATA}
-              progress={progress}
-              onSaveQuizResult={handleSaveQuizResult}
-            />
-          )}
+            {view === 'quiz' && (
+              <motion.div
+                key="quiz"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.22, ease: "easeOut" }}
+              >
+                <QuizMode
+                  allQuestions={CATECHISM_DATA}
+                  progress={progress}
+                  onSaveQuizResult={handleSaveQuizResult}
+                  zenMode={isZenActive}
+                />
+              </motion.div>
+            )}
 
-          {view === 'writing' && (
-            <WritingQuiz
-              allQuestions={CATECHISM_DATA}
-              progress={progress}
-              onSaveQuizResult={handleSaveQuizResult}
-              toggleLearnedStatus={toggleLearnedStatus}
-            />
-          )}
+            {view === 'writing' && (
+              <motion.div
+                key="writing"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.22, ease: "easeOut" }}
+              >
+                <WritingQuiz
+                  allQuestions={CATECHISM_DATA}
+                  progress={progress}
+                  onSaveQuizResult={handleSaveQuizResult}
+                  toggleLearnedStatus={toggleLearnedStatus}
+                  zenMode={isZenActive}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </main>
 
+      {/* Floating Zen Mode HUD controller */}
+      {view !== 'dashboard' && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2">
+          <button
+            onClick={() => setZenMode(prev => !prev)}
+            className={`group flex items-center gap-2.5 px-4 py-3 rounded-full shadow-lg border backdrop-blur-md transition-all duration-300 active:scale-95 hover:scale-105 ${
+              isZenActive
+                ? 'bg-amber-500 border-amber-400 text-slate-950 font-black shadow-amber-500/25'
+                : 'bg-white/95 dark:bg-slate-900/95 border-gray-150 dark:border-slate-800 text-gray-700 dark:text-slate-200 hover:text-gray-950 dark:hover:text-white'
+            }`}
+            title={isZenActive ? 'Thoát Chế độ Zen (Hiện thanh công cụ)' : 'Bật Chế độ Zen (Tập trung tối đa)'}
+            id="zen-hud-floating-btn"
+          >
+            <Sparkles className={`h-4.5 w-4.5 ${isZenActive ? 'text-slate-950 animate-pulse' : 'text-blue-500 group-hover:rotate-12 transition-transform'}`} />
+            <span className="text-xs font-bold font-sans tracking-wide">
+              {isZenActive ? 'Thoát Zen' : 'Chế độ Zen'}
+            </span>
+          </button>
+        </div>
+      )}
+
       {/* Persistent Bottom Tab bar on mobile to change modes easily */}
-      <div className="fixed bottom-0 z-40 w-full border-t border-gray-150 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl flex justify-around py-2.5 sm:py-3.5 lg:hidden">
-        <button
-          onClick={() => setView('dashboard')}
-          className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
-            view === 'dashboard' ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-slate-500'
-          }`}
-        >
-          <LayoutDashboard className="h-5 w-5" />
-          <span>Dashboard</span>
-        </button>
-        <button
-          onClick={() => setView('browse')}
-          className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
-            view === 'browse' ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-slate-500'
-          }`}
-        >
-          <BookOpen className="h-5 w-5" />
-          <span>Danh mục</span>
-        </button>
-        <button
-          onClick={() => setView('memory')}
-          className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
-            view === 'memory' ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-slate-500'
-          }`}
-        >
-          <Layers className="h-5 w-5" />
-          <span>Flashcard</span>
-        </button>
-        <button
-          onClick={() => setView('quiz')}
-          className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
-            view === 'quiz' ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-slate-500'
-          }`}
-        >
-          <HelpCircle className="h-5 w-5" />
-          <span>Trắc nghiệm</span>
-        </button>
-        <button
-          onClick={() => setView('writing')}
-          className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
-            view === 'writing' ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-slate-500'
-          }`}
-        >
-          <Brain className={`h-5 w-5 ${view === 'writing' ? 'text-violet-500 animate-pulse' : ''}`} />
-          <span>Tự luận AI</span>
-        </button>
-      </div>
+      {!isZenActive && (
+        <div className="fixed bottom-0 z-40 w-full border-t border-gray-150 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl flex justify-around py-2.5 sm:py-3.5 lg:hidden">
+          <button
+            onClick={() => setView('dashboard')}
+            className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
+              view === 'dashboard' ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-slate-500'
+            }`}
+          >
+            <LayoutDashboard className="h-5 w-5" />
+            <span>Dashboard</span>
+          </button>
+          <button
+            onClick={() => setView('browse')}
+            className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
+              view === 'browse' ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-slate-500'
+            }`}
+          >
+            <BookOpen className="h-5 w-5" />
+            <span>Danh mục</span>
+          </button>
+          <button
+            onClick={() => setView('memory')}
+            className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
+              view === 'memory' ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-slate-500'
+            }`}
+          >
+            <Layers className="h-5 w-5" />
+            <span>Flashcard</span>
+          </button>
+          <button
+            onClick={() => setView('quiz')}
+            className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
+              view === 'quiz' ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-slate-500'
+            }`}
+          >
+            <HelpCircle className="h-5 w-5" />
+            <span>Trắc nghiệm</span>
+          </button>
+          <button
+            onClick={() => setView('writing')}
+            className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
+              view === 'writing' ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-slate-500'
+            }`}
+          >
+            <Brain className={`h-5 w-5 ${view === 'writing' ? 'text-violet-500 animate-pulse' : ''}`} />
+            <span>Tự luận AI</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

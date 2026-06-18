@@ -8,6 +8,7 @@ interface BrowseModeProps {
   toggleLearnedStatus: (id: string) => void;
   searchedQuestion: QuestionItem | null;
   clearSearchedQuestion: () => void;
+  zenMode?: boolean;
 }
 
 interface SidebarItem {
@@ -85,10 +86,19 @@ const PartCard: React.FC<{ part: StructuredPart; progress: any; onClick: () => v
   );
 };
   
-const ItemCard: React.FC<{ label: string; progress: any; onClick: () => void }> = ({ label, progress, onClick }) => (
-  <button onClick={onClick} className="w-full flex items-center justify-between p-4 rounded-xl border border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:border-blue-200 dark:hover:border-slate-700">
-    <div className="text-left"><h4 className="font-semibold text-sm">{label}</h4><p className="text-[10px] text-gray-400 mt-0.5">{progress.percentage}% hoàn thành</p></div>
-    <ChevronRight className="h-4 w-4 text-gray-400" />
+  const getProgressForLesson = (lesson: any, progress: UserProgress) => {
+    const learnedCount = lesson.questions.filter((q: any) => progress.learned.includes(q.id)).length;
+    const percentage = lesson.questions.length > 0 ? Math.round((learnedCount / lesson.questions.length) * 100) : 0;
+    return { percentage, learnedCount, totalCount: lesson.questions.length };
+  };
+  
+const ItemCard: React.FC<{ label: string; type: 'chapter' | 'lesson'; progress: any; isActive: boolean; onClick: () => void }> = ({ label, type, progress, isActive, onClick }) => (
+  <button onClick={onClick} className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${isActive ? 'border-blue-500 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30' : 'border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-blue-200 dark:hover:border-slate-700'}`}>
+    <div className="text-left">
+      <h4 className={`font-semibold text-sm ${isActive ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-slate-100'}`}>{label}</h4>
+      <p className="text-[10px] text-gray-400 mt-0.5">{type === 'chapter' ? 'Chương' : 'Bài'} • {progress.percentage}% hoàn thành</p>
+    </div>
+    <ChevronRight className={`h-4 w-4 ${isActive ? 'text-blue-500' : 'text-gray-400'}`} />
   </button>
 );
 
@@ -121,7 +131,7 @@ const QuestionItemView: React.FC<{ q: any; isLearned: boolean; toggleLearned: ()
   </div>
 );
 
-export const BrowseMode: React.FC<BrowseModeProps> = ({ progress, toggleLearnedStatus }) => {
+export const BrowseMode: React.FC<BrowseModeProps> = ({ progress, toggleLearnedStatus, zenMode = false }) => {
   const structuredParts = getStructuredCatechism();
   const [view, setView] = useState<'parts' | 'chapters' | 'questions'>('parts');
   const [activePartIndex, setActivePartIndex] = useState<number>(0);
@@ -158,22 +168,41 @@ export const BrowseMode: React.FC<BrowseModeProps> = ({ progress, toggleLearnedS
     return (
       <div className="grid grid-cols-12 gap-8 pt-4 h-[calc(100vh-100px)]">
         {/* Left Sidebar */}
-        <div className="col-span-4 space-y-6 overflow-y-auto">
-          <div className="grid grid-cols-2 gap-2">
-            {structuredParts.map((part, pIdx) => (
-               <button key={part.name} onClick={() => { setActivePartIndex(pIdx); setActiveItemKey(null); }} className={`p-3 rounded-2xl border ${activePartIndex === pIdx ? 'bg-blue-100 border-blue-200' : 'bg-gray-50'}`}>
-                 <span className="text-[10px] font-black uppercase text-gray-500">{part.short}</span>
-               </button>
-            ))}
-          </div>
-          <div className="space-y-4">
-             {allItems.map(item => (
-                <ItemCard key={item.key} label={item.label} progress={getProgressForChapter(item, progress)} onClick={() => setActiveItemKey(item.key)} />
+        {!zenMode && (
+          <div className="col-span-4 space-y-6 overflow-y-auto">
+            <div className="grid grid-cols-2 gap-2">
+              {structuredParts.map((part, pIdx) => (
+                 <button key={part.name} onClick={() => { setActivePartIndex(pIdx); setActiveItemKey(null); }} className={`p-3 rounded-2xl border ${activePartIndex === pIdx ? 'bg-blue-100 border-blue-200' : 'bg-gray-50'}`}>
+                   <span className="text-[10px] font-black uppercase text-gray-500">{part.short}</span>
+                 </button>
               ))}
+            </div>
+            <div className="space-y-6">
+              {(Object.entries(allItems.reduce((acc, item) => {
+                 const section = item.sectionName || 'Khác';
+                 if (!acc[section]) acc[section] = [];
+                 acc[section].push(item);
+                 return acc;
+              }, {} as Record<string, any[]>)) as [string, any[]][]).map(([sectionName, sectionItems]) => (
+                 <div key={sectionName} className="space-y-2">
+                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-1">{sectionName}</h4>
+                    {sectionItems.map(item => (
+                      <ItemCard 
+                        key={item.key} 
+                        label={item.label} 
+                        type={item.type as 'chapter' | 'lesson'} 
+                        progress={item.type === 'chapter' ? getProgressForChapter(item, progress) : getProgressForLesson(item.lessons[0], progress)} 
+                        isActive={activeItemKey === item.key}
+                        onClick={() => setActiveItemKey(item.key)} 
+                      />
+                    ))}
+                 </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
         {/* Right Content */}
-        <div className="col-span-8 overflow-y-auto space-y-3">
+        <div className={`${zenMode ? 'col-span-12 max-w-3xl mx-auto w-full' : 'col-span-8'} overflow-y-auto space-y-3`}>
           {currentItem ? (
             activeLesson ? (
               <>
@@ -193,7 +222,14 @@ export const BrowseMode: React.FC<BrowseModeProps> = ({ progress, toggleLearnedS
               <>
                 <h2 className="text-2xl font-black">{currentItem.label}</h2>
                 {currentItem.lessons.map((l: any) => (
-                  <ItemCard key={l.lessonId} label={l.name} progress={getProgressForChapter({ lessons: [l] }, progress)} onClick={() => setActiveLesson(l)} />
+                  <ItemCard 
+                    key={l.lessonId} 
+                    label={l.name} 
+                    type="lesson"
+                    progress={getProgressForLesson(l, progress)} 
+                    isActive={false}
+                    onClick={() => setActiveLesson(l)} 
+                  />
                 ))}
               </>
             ) : null
@@ -218,7 +254,16 @@ export const BrowseMode: React.FC<BrowseModeProps> = ({ progress, toggleLearnedS
         <ArrowLeft className="h-4 w-4" /> Quay lại
       </button>
       <h2 className="text-xl font-black">{activePart.title}</h2>
-      {allItems.map(item => <ItemCard key={item.key} label={item.label} progress={getProgressForChapter(item, progress)} onClick={() => { setActiveItemKey(item.key); setView('questions'); }} />)}
+      {allItems.map(item => (
+        <ItemCard 
+          key={item.key} 
+          label={item.label} 
+          type={item.type as 'chapter' | 'lesson'}
+          progress={item.type === 'chapter' ? getProgressForChapter(item, progress) : getProgressForLesson(item.lessons[0], progress)} 
+          isActive={false}
+          onClick={() => { setActiveItemKey(item.key); setView('questions'); }} 
+        />
+      ))}
     </div>
   );
   return (

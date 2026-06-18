@@ -38,7 +38,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ progress, totalQuestions, 
           <div className="shrink-0">
             <div className="h-40 w-40 rounded-full border-4 border-amber-200 dark:border-amber-900 shadow-lg overflow-hidden bg-white">
               <img 
-                src="/assets/saint-paul-le-bao-tinh.jpg" 
+                src="/saint-paul-le-bao-tinh.jpg" 
                 alt="Thánh Phaolô Lê Bảo Tịnh" 
                 className="h-full w-full object-cover"
                 referrerPolicy="no-referrer"

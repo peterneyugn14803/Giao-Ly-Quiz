@@ -8,6 +8,8 @@ interface HeaderProps {
   onSelectQuestion: (q: QuestionItem) => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
+  zenMode: boolean;
+  onToggleZenMode: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,6 +18,8 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectQuestion,
   theme,
   onToggleTheme,
+  zenMode,
+  onToggleZenMode,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [results, setResults] = useState<QuestionItem[]>([]);
@@ -104,6 +108,20 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Action Controls (Theme, Streak) */}
         <div className="flex items-center gap-2 sm:gap-4">
+          {/* Zen Mode Toggle Button */}
+          <button
+            onClick={onToggleZenMode}
+            title={zenMode ? 'Tắt chế độ Zen (Khôi phục giao diện)' : 'Bật chế độ Zen (Tập trung tối đa)'}
+            id="zen-toggle-header-btn"
+            className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-all focus:outline-none ${
+              zenMode
+                ? 'bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-500/20'
+                : 'border-gray-150 dark:border-slate-800 bg-white dark:bg-slate-900 text-gray-400 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-gray-800 dark:hover:text-slate-100 shadow-sm'
+            }`}
+          >
+            <Sparkles className={`h-4.5 w-4.5 ${zenMode ? 'text-amber-300 animate-pulse' : 'text-blue-500'}`} />
+          </button>
+
           {/* Theme Toggle Button */}
           <button
             onClick={onToggleTheme}
