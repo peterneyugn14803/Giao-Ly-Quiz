@@ -1,14 +1,15 @@
 import React from 'react';
-import { BookOpen, HelpCircle, Inbox, Award, ArrowRight, Zap, Target, BookOpenCheck, Brain } from 'lucide-react';
+import { BookOpen, HelpCircle, Inbox, Award, ArrowRight, Zap, Target, BookOpenCheck, Brain, Sparkles } from 'lucide-react';
 import { QuestionItem, UserProgress } from '../types';
 
 interface DashboardProps {
   progress: UserProgress;
   totalQuestions: number;
   onNavigate: (mode: 'browse' | 'memory' | 'quiz' | 'writing') => void;
+  onOpenKinhSangSoi?: () => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ progress, totalQuestions, onNavigate }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ progress, totalQuestions, onNavigate, onOpenKinhSangSoi }) => {
   const totalLearned = progress.learned.length;
   const learnedPercent = totalQuestions > 0 ? Math.round((totalLearned / totalQuestions) * 100) : 0;
   const needsReviewCount = progress.needsReview.length;
@@ -32,6 +33,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ progress, totalQuestions, 
             <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed max-w-md mx-auto md:mx-0">
                Cùng với sự bảo trợ của Thánh nhân, hãy bắt đầu hành trình học tập Giáo Lý Công Giáo của bạn một cách trọn vẹn và an yên.
             </p>
+            {onOpenKinhSangSoi && (
+              <div className="pt-2 flex flex-wrap gap-2 justify-center md:justify-start">
+                <button
+                  onClick={onOpenKinhSangSoi}
+                  className="inline-flex items-center gap-1.5 px-4.5 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-600 dark:bg-amber-500 text-slate-950 text-xs font-black shadow-md shadow-amber-500/10 transition-all hover:scale-103 active:scale-97 cursor-pointer"
+                >
+                  <Sparkles size={14} className="animate-pulse" />
+                  Kinh Sáng Soi & Lời Chúa Nghị Lực ✦
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Saint Image */}

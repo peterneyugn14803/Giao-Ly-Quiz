@@ -26,6 +26,7 @@ export default function App() {
   const [view, setView] = useState<'dashboard' | 'browse' | 'memory' | 'quiz' | 'writing'>('dashboard');
   const [progress, setProgress] = useState<UserProgress>(INITIAL_PROGRESS);
   const [searchedQuestion, setSearchedQuestion] = useState<QuestionItem | null>(null);
+  const [isKinhOpen, setIsKinhOpen] = useState<boolean>(true);
   const [zenMode, setZenMode] = useState<boolean>(() => {
     return localStorage.getItem('giaoly_zen_mode') === 'true';
   });
@@ -159,7 +160,7 @@ export default function App() {
 
   return (
     <div className={`min-h-screen bg-slate-50/50 dark:bg-slate-950 text-gray-800 dark:text-slate-100 ${isZenActive ? 'pb-8' : 'pb-16'} transition-colors duration-300`}>
-      <KinhSangSoiModal />
+      <KinhSangSoiModal isOpen={isKinhOpen} onClose={() => setIsKinhOpen(false)} />
       {/* Top Header navbar */}
       {!isZenActive && (
         <Header
@@ -170,6 +171,7 @@ export default function App() {
           onToggleTheme={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
           zenMode={zenMode}
           onToggleZenMode={() => setZenMode(prev => !prev)}
+          onOpenKinhSangSoi={() => setIsKinhOpen(true)}
         />
       )}
 
@@ -212,6 +214,7 @@ export default function App() {
                   progress={progress}
                   totalQuestions={CATECHISM_DATA.length}
                   onNavigate={setView}
+                  onOpenKinhSangSoi={() => setIsKinhOpen(true)}
                 />
               </motion.div>
             )}
@@ -291,20 +294,26 @@ export default function App() {
 
       {/* Floating Zen Mode HUD controller */}
       {view !== 'dashboard' && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2">
+        <div 
+          className={`fixed z-50 flex items-center gap-2 transition-all duration-300 ${
+            isZenActive 
+              ? 'bottom-6 right-4 sm:right-6' 
+              : 'bottom-[74px] right-4 lg:bottom-6 lg:right-6'
+          }`}
+        >
           <button
             onClick={() => setZenMode(prev => !prev)}
-            className={`group flex items-center gap-2.5 px-4 py-3 rounded-full shadow-lg border backdrop-blur-md transition-all duration-300 active:scale-95 hover:scale-105 ${
+            className={`group flex h-10 w-10 sm:h-auto sm:w-auto items-center justify-center gap-2 sm:px-4 sm:py-2.5 rounded-full shadow-lg border backdrop-blur-md transition-all duration-300 active:scale-95 hover:scale-105 ${
               isZenActive
                 ? 'bg-amber-500 border-amber-400 text-slate-950 font-black shadow-amber-500/25'
                 : 'bg-white/95 dark:bg-slate-900/95 border-gray-150 dark:border-slate-800 text-gray-700 dark:text-slate-200 hover:text-gray-950 dark:hover:text-white'
             }`}
-            title={isZenActive ? 'Thoát Chế độ Zen (Hiện thanh công cụ)' : 'Bật Chế độ Zen (Tập trung tối đa)'}
+            title={isZenActive ? 'Thoát Chế độ Tập Trung (Hiện thanh công cụ)' : 'Bật Chế độ Tập Trung (Tối đa sâu sắc)'}
             id="zen-hud-floating-btn"
           >
             <Sparkles className={`h-4.5 w-4.5 ${isZenActive ? 'text-slate-950 animate-pulse' : 'text-blue-500 group-hover:rotate-12 transition-transform'}`} />
-            <span className="text-xs font-bold font-sans tracking-wide">
-              {isZenActive ? 'Thoát Zen' : 'Chế độ Zen'}
+            <span className="hidden sm:inline text-xs font-bold font-sans tracking-wide">
+              {isZenActive ? 'Thoát Tập Trung' : 'CHẾ ĐỘ TẬP TRUNG'}
             </span>
           </button>
         </div>

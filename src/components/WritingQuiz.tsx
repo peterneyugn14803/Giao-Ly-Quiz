@@ -357,7 +357,7 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
                   LUYỆN THI TỰ LUẬN TẬP TRUNG
                 </h2>
               </div>
-              <p className="text-[10px] text-gray-400 dark:text-slate-500 font-bold uppercase tracking-wider">Chế độ tịnh tâm Zen Mode đang bật</p>
+              <p className="text-[10px] text-gray-400 dark:text-slate-500 font-bold uppercase tracking-wider">CHẾ ĐỘ TẬP TRUNG ĐANG BẬT</p>
             </div>
           )}
 

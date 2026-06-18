@@ -202,39 +202,116 @@ export const BrowseMode: React.FC<BrowseModeProps> = ({ progress, toggleLearnedS
           </div>
         )}
         {/* Right Content */}
-        <div className={`${zenMode ? 'col-span-12 max-w-3xl mx-auto w-full' : 'col-span-8'} overflow-y-auto space-y-3`}>
+        <div className={`${zenMode ? 'col-span-12 max-w-3xl mx-auto w-full animate-fade-in' : 'col-span-8'} overflow-y-auto space-y-3`}>
           {currentItem ? (
             activeLesson ? (
               <>
-                 <button onClick={() => setActiveLesson(null)} className="text-sm text-blue-600 mb-4 flex items-center gap-1">&larr; Quay lại {currentItem.label}</button>
-                 <h2 className="text-2xl font-black">{activeLesson.name}</h2>
-                 {activeLesson.questions.map((q: any) => (
-                     <QuestionItemView 
-                       key={q.id} q={q} 
-                       isLearned={progress.learned.includes(q.id)} 
-                       toggleLearned={() => toggleLearnedStatus(q.id)}
-                       isExpanded={!!expandedQuestions[q.id]}
-                       onToggle={() => setExpandedQuestions(prev => ({ ...prev, [q.id]: !prev[q.id] }))}
-                     />
-                 ))}
+                 <button onClick={() => setActiveLesson(null)} className="text-sm font-bold text-gray-500 hover:text-blue-600 mb-4 flex items-center gap-1">&larr; Quay lại {currentItem.label}</button>
+                 <h2 className="text-2xl font-black mb-4 text-gray-800 dark:text-slate-100">{activeLesson.name}</h2>
+                 <div className="space-y-4">
+                   {activeLesson.questions.map((q: any) => (
+                       <QuestionItemView 
+                         key={q.id} q={q} 
+                         isLearned={progress.learned.includes(q.id)} 
+                         toggleLearned={() => toggleLearnedStatus(q.id)}
+                         isExpanded={!!expandedQuestions[q.id]}
+                         onToggle={() => setExpandedQuestions(prev => ({ ...prev, [q.id]: !prev[q.id] }))}
+                       />
+                   ))}
+                 </div>
               </>
             ) : currentItem.type === 'chapter' ? (
               <>
-                <h2 className="text-2xl font-black">{currentItem.label}</h2>
-                {currentItem.lessons.map((l: any) => (
-                  <ItemCard 
-                    key={l.lessonId} 
-                    label={l.name} 
-                    type="lesson"
-                    progress={getProgressForLesson(l, progress)} 
-                    isActive={false}
-                    onClick={() => setActiveLesson(l)} 
-                  />
-                ))}
+                <button onClick={() => setActiveItemKey(null)} className="text-sm font-bold text-gray-500 hover:text-blue-600 mb-4 flex items-center gap-1">&larr; Quay lại Danh sách Chương</button>
+                <h2 className="text-2xl font-black mb-4 text-gray-800 dark:text-slate-100">{currentItem.label}</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {currentItem.lessons.map((l: any) => (
+                    <ItemCard 
+                      key={l.lessonId} 
+                      label={l.name} 
+                      type="lesson"
+                      progress={getProgressForLesson(l, progress)} 
+                      isActive={false}
+                      onClick={() => setActiveLesson(l)} 
+                    />
+                  ))}
+                </div>
               </>
             ) : null
+          ) : zenMode ? (
+             /* Elegant Choice Screen when Zen Mode is active and no item is selected */
+             <div className="space-y-8 py-6 animate-fade-in">
+               <div className="text-center space-y-2">
+                 <div className="inline-flex items-center gap-2 text-yellow-500 bg-yellow-500/5 px-4 py-1.5 rounded-full border border-yellow-500/10">
+                   <Sparkles className="h-4 w-4 animate-pulse" />
+                   <span className="text-xs font-black uppercase tracking-widest">CHẾ ĐỘ TẬP TRUNG</span>
+                 </div>
+                 <h2 className="text-2xl font-black text-gray-800 dark:text-slate-100 tracking-tight">Học Tập Trung & Sâu Sắc</h2>
+                 <p className="text-xs sm:text-sm text-gray-500 dark:text-slate-400 max-w-lg mx-auto">Tất cả giao diện rườm rà đã được lược bỏ. Hãy lựa chọn phần học dưới đây để bắt đầu học tập tịnh tâm.</p>
+               </div>
+
+               {/* Part Selection Buttons */}
+               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-gray-50 dark:bg-slate-900/50 p-2.5 rounded-3xl border border-gray-150 dark:border-slate-850/60 shadow-inner">
+                 {structuredParts.map((part, pIdx) => {
+                   const isCurrent = activePartIndex === pIdx;
+                   return (
+                     <button 
+                       key={part.name} 
+                       onClick={() => { setActivePartIndex(pIdx); setActiveItemKey(null); }} 
+                       className={`p-4 rounded-2xl border transition-all flex flex-col items-center justify-center gap-1.5 select-none ${
+                         isCurrent 
+                           ? 'bg-white dark:bg-slate-900 border-blue-500/35 dark:border-blue-900 shadow-md text-blue-600 dark:text-blue-400' 
+                           : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-900/40'
+                       }`}
+                     >
+                       <span className={`text-[10px] font-black uppercase tracking-widest ${isCurrent ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-slate-500'}`}>
+                         {part.short}
+                       </span>
+                       <span className={`text-xs font-bold line-clamp-1 ${isCurrent ? 'text-gray-850 dark:text-slate-200' : 'text-gray-550 dark:text-slate-400'}`}>
+                         {part.name.split(':')[1]?.trim() || part.name}
+                       </span>
+                     </button>
+                   );
+                 })}
+               </div>
+
+               {/* List of Chapters for Selected Part in Zen Mode Welcome screen */}
+               <div className="space-y-6 pt-2">
+                 {(Object.entries(allItems.reduce((acc, item) => {
+                    const section = item.sectionName || 'Khác';
+                    if (!acc[section]) acc[section] = [];
+                    acc[section].push(item);
+                    return acc;
+                 }, {} as Record<string, any[]>)) as [string, any[]][]).map(([sectionName, sectionItems]) => (
+                    <div key={sectionName} className="space-y-3">
+                       <div className="flex items-center gap-2 px-1">
+                         <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                         <h4 className="text-xs font-black text-gray-450 dark:text-slate-500 uppercase tracking-widest">{sectionName}</h4>
+                       </div>
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                         {sectionItems.map(item => (
+                           <ItemCard 
+                             key={item.key} 
+                             label={item.label} 
+                             type={item.type as 'chapter' | 'lesson'} 
+                             progress={item.type === 'chapter' ? getProgressForChapter(item, progress) : getProgressForLesson(item.lessons[0], progress)} 
+                             isActive={activeItemKey === item.key}
+                             onClick={() => setActiveItemKey(item.key)} 
+                           />
+                         ))}
+                       </div>
+                    </div>
+                 ))}
+               </div>
+             </div>
           ) : (
-             <h2 className="text-2xl font-black">Chọn chương hoặc bài</h2>
+             <div className="flex flex-col items-center justify-center py-20 text-center animate-fade-in">
+               <div className="h-16 w-16 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center mb-4">
+                 <Compass className="h-8 w-8" />
+               </div>
+               <h3 className="text-xl font-bold text-gray-850 dark:text-slate-200 mb-1">Vui lòng chọn nội dung học tập</h3>
+               <p className="text-gray-400 dark:text-slate-500 text-xs sm:text-sm max-w-sm">Chọn một mục bất kỳ ở Danh mục bên trái để hiển thị toàn bộ nội dung Giáo Lý ôn luyện.</p>
+             </div>
           )}
         </div>
       </div>
