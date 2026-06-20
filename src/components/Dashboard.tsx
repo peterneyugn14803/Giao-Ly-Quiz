@@ -1,5 +1,6 @@
 import React from 'react';
 import { BookOpen, HelpCircle, Inbox, Award, ArrowRight, Zap, Target, BookOpenCheck, Brain, Sparkles } from 'lucide-react';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { QuestionItem, UserProgress } from '../types';
 
 interface DashboardProps {
@@ -7,9 +8,10 @@ interface DashboardProps {
   totalQuestions: number;
   onNavigate: (mode: 'browse' | 'memory' | 'quiz' | 'writing') => void;
   onOpenKinhSangSoi?: () => void;
+  onStartQuickReview?: () => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ progress, totalQuestions, onNavigate, onOpenKinhSangSoi }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ progress, totalQuestions, onNavigate, onOpenKinhSangSoi, onStartQuickReview }) => {
   const totalLearned = progress.learned.length;
   const learnedPercent = totalQuestions > 0 ? Math.round((totalLearned / totalQuestions) * 100) : 0;
   const needsReviewCount = progress.needsReview.length;
@@ -98,6 +100,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ progress, totalQuestions, 
               ? `Hệ thống Flashcard đang ưu tiên ghi nhớ ${needsReviewCount} câu chưa thuộc này.` 
               : "Thật tuyệt vời! Không có câu hỏi nào bị đánh dấu yếu lúc này."}
           </p>
+          {onStartQuickReview && (
+            <div className="mt-4 pt-1">
+              <button
+                onClick={onStartQuickReview}
+                disabled={needsReviewCount === 0}
+                className={`w-full inline-flex items-center justify-center gap-1.5 px-4.5 py-2.5 rounded-2xl text-xs font-black transition-all border ${
+                  needsReviewCount > 0
+                    ? 'bg-gradient-to-r from-orange-50 to-amber-100 text-amber-700 border-amber-200/50 hover:bg-amber-100/80 hover:text-amber-800 dark:from-amber-950/20 dark:to-orange-950/15 dark:text-amber-400 dark:border-amber-900/40 dark:hover:bg-amber-950/30 dark:hover:text-amber-300 active:scale-97 cursor-pointer shadow-sm'
+                    : 'bg-gray-100 dark:bg-slate-800/50 text-gray-400 dark:text-slate-600 border-transparent cursor-not-allowed opacity-50'
+                }`}
+              >
+                <Zap size={13} className={needsReviewCount > 0 ? 'animate-pulse' : ''} />
+                Ôn tập nhanh 5 câu ✦
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Quiz scores */}
@@ -122,6 +140,104 @@ export const Dashboard: React.FC<DashboardProps> = ({ progress, totalQuestions, 
             <p className="text-xs text-gray-500 dark:text-slate-400">Điểm số kỷ lục cao nhất của bạn là <strong className="text-gray-700 dark:text-slate-350 font-mono">{highestScore}%</strong>.</p>
           ) : (
             <p className="text-xs text-gray-400 dark:text-slate-500">Hãy thử bắt đầu một kỳ thi trắc nghiệm để đánh giá sức thuộc!</p>
+          )}
+        </div>
+      </div>
+
+      {/* Learning Progress Chart Section */}
+      <div className="rounded-3xl border border-gray-150 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-6 shadow-sm hover:shadow-md dark:shadow-none transition-all">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-6">
+          <div>
+            <h3 className="text-sm font-extrabold tracking-tight text-gray-800 dark:text-slate-100 flex items-center gap-2 uppercase font-sans">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-500 dark:text-indigo-400">
+                <Target size={15} />
+              </span>
+              Biểu đồ Tiến Độ Học Tập
+            </h3>
+            <p className="text-xs text-gray-400 dark:text-slate-500 mt-1 font-medium">
+              Thống kê lũy kế số câu Giáo Lý bạn đã ghi nhớ thành công (Đã Thuộc) qua thời gian
+            </p>
+          </div>
+          <div className="text-right shrink-0">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 border border-blue-105 dark:border-blue-900/10">
+              ⚡ Toàn bộ: {totalLearned} / {totalQuestions} câu
+            </span>
+          </div>
+        </div>
+
+        {/* Chart container */}
+        <div className="h-56 w-full">
+          {progress.learnedHistory && progress.learnedHistory.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart 
+                data={(progress.learnedHistory || []).map(h => {
+                  let displayDate = h.date;
+                  try {
+                    const parts = h.date.split('-');
+                    if (parts.length === 3) {
+                      displayDate = `${parts[2]}/${parts[1]}`;
+                    }
+                  } catch (_) {}
+                  return {
+                    ...h,
+                    displayDate,
+                    fullDate: `Ngày ${displayDate}`
+                  };
+                })} 
+                margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="colorLearnedArea" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-slate-800/40" />
+                <XAxis 
+                  dataKey="displayDate" 
+                  tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} 
+                  axisLine={{ stroke: '#e2e8f0', strokeWidth: 1 }} 
+                  className="dark:stroke-slate-800 font-mono"
+                  tickLine={false}
+                />
+                <YAxis 
+                  allowDecimals={false}
+                  tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} 
+                  axisLine={false}
+                  tickLine={false}
+                  domain={[0, 'auto']}
+                  className="font-mono"
+                />
+                <Tooltip 
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="bg-slate-900/95 dark:bg-slate-950/95 border border-slate-205 dark:border-slate-800 rounded-2xl px-3.5 py-2.5 shadow-xl text-xs text-slate-200">
+                          <p className="font-bold text-slate-400 mb-1">{payload[0].payload.fullDate}</p>
+                          <p className="font-black text-blue-400">
+                            Số câu đã thuộc: <span className="text-white text-sm font-mono ml-1">{payload[0].value}</span>
+                          </p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="count" 
+                  stroke="#3b82f6" 
+                  strokeWidth={2.5} 
+                  fillOpacity={1} 
+                  fill="url(#colorLearnedArea)" 
+                  activeDot={{ r: 5, stroke: '#ffffff', strokeWidth: 2, fill: '#3b82f6' }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full border border-dashed border-gray-150 dark:border-slate-800 rounded-3xl text-gray-400 dark:text-slate-500">
+              <span className="text-xs font-bold">Hãy lưu thêm câu đã thuộc để hiển thị biểu đồ xu hướng ✦</span>
+            </div>
           )}
         </div>
       </div>

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QuestionItem, UserProgress } from '../types';
+import { getStructuredCatechism } from '../data';
 
 // Standard Vietnamese stop words to filter out when automatically identifying keywords
 const VIETNAMESE_STOP_WORDS = new Set([
@@ -156,18 +157,53 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
   const [scoresHistory, setScoresHistory] = useState<number[]>([]);
   const [showSummary, setShowSummary] = useState<boolean>(false);
 
-  // Generate unique chapters list for scope dropdown filter
-  const chaptersList = Array.from(new Set(allQuestions.map(q => q.chapter || 'Chương phụ')));
+  const getQuestionsForFilter = (filterValue: string): QuestionItem[] => {
+    if (filterValue === 'all') {
+      return allQuestions;
+    }
+
+    if (filterValue.startsWith('chapter:')) {
+      const targetChapterName = filterValue.substring('chapter:'.length);
+      const structuredParts = getStructuredCatechism();
+      for (const part of structuredParts) {
+        for (const sec of part.sections) {
+          for (const chap of sec.chapters) {
+            if (chap.name === targetChapterName) {
+              return chap.lessons.flatMap(l => l.questions);
+            }
+          }
+        }
+      }
+      return allQuestions.filter(q => q.chapter === targetChapterName);
+    }
+
+    if (filterValue.startsWith('lesson:')) {
+      const targetLessonId = parseInt(filterValue.substring('lesson:'.length), 10);
+      const structuredParts = getStructuredCatechism();
+      for (const part of structuredParts) {
+        for (const sec of part.sections) {
+          for (const les of sec.lessonsWithoutChapter) {
+            if (les.lessonId === targetLessonId) {
+              return les.questions;
+            }
+          }
+        }
+      }
+      return allQuestions.filter(q => {
+        const match = q.lesson.match(/BÀI\s+(\d+)/i);
+        return match ? parseInt(match[1], 10) === targetLessonId : false;
+      });
+    }
+
+    return allQuestions;
+  };
 
   // Focus reference for textareas
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Restart / Init writing quiz sessions
   const startQuizSession = () => {
-    let filtered = [...allQuestions];
-    if (filterChapter !== 'all') {
-      filtered = filtered.filter(q => q.chapter === filterChapter);
-    }
+    const filtered = getQuestionsForFilter(filterChapter);
     
     // Select up to 10 random questions from the subset for an intense writing workout
     const shuffled = filtered.sort(() => 0.5 - Math.random());
@@ -378,9 +414,25 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
                   className="w-full text-sm font-semibold rounded-2xl border border-gray-250 dark:border-slate-800 bg-white dark:bg-slate-900 py-3 px-4 text-gray-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none cursor-pointer"
                 >
                   <option value="all">Mọi chương bài trong Giáo trình (Tất cả {allQuestions.length} câu)</option>
-                  {chaptersList.map((ch, idx) => (
-                    <option key={idx} value={ch}>{ch}</option>
-                  ))}
+                  {getStructuredCatechism().map((part) => {
+                    const partLabel = `${part.short}: ${part.title}`;
+                    return (
+                      <optgroup label={partLabel} key={part.name} className="font-bold text-gray-400 dark:text-slate-500 bg-white dark:bg-slate-900 mt-2">
+                        {part.sections.flatMap((sec) => [
+                          ...sec.chapters.map((chap) => (
+                            <option key={`chapter:${chap.name}`} value={`chapter:${chap.name}`} className="font-normal text-gray-700 dark:text-slate-200 bg-white dark:bg-slate-900">
+                              {chap.name}
+                            </option>
+                          )),
+                          ...sec.lessonsWithoutChapter.map((les) => (
+                            <option key={`lesson:${les.lessonId}`} value={`lesson:${les.lessonId}`} className="font-normal text-gray-700 dark:text-slate-200 bg-white dark:bg-slate-900">
+                              {les.name}
+                            </option>
+                          ))
+                        ])}
+                      </optgroup>
+                    );
+                  })}
                 </select>
                 <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500">
                   <Filter className="h-4 w-4" />

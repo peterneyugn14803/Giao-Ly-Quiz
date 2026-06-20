@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { HelpCircle, Award, CheckCircle2, XCircle, Sparkles, RefreshCw, ArrowRight, BookOpen } from 'lucide-react';
 import { QuestionItem, UserProgress } from '../types';
-import { getGroupedCatechismByPart } from '../data';
+import { getStructuredCatechism } from '../data';
 
 interface QuizModeProps {
   allQuestions: QuestionItem[];
   progress: UserProgress;
   onSaveQuizResult: (correct: number, total: number) => void;
   zenMode?: boolean;
+  overrideQuestions?: QuestionItem[];
+  onClearOverrideQuestions?: () => void;
 }
 
 interface QuizQuestion {
@@ -20,7 +22,9 @@ export const QuizMode: React.FC<QuizModeProps> = ({
   allQuestions,
   progress,
   onSaveQuizResult,
-  zenMode = false
+  zenMode = false,
+  overrideQuestions,
+  onClearOverrideQuestions
 }) => {
   const [filterChapter, setFilterChapter] = useState<string>('all');
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
@@ -30,30 +34,69 @@ export const QuizMode: React.FC<QuizModeProps> = ({
   const [score, setScore] = useState<number>(0);
   const [isFinished, setIsFinished] = useState<boolean>(false);
 
-  const chapters = Array.from(new Set(allQuestions.map(q => q.chapter)));
-
-  // Generate 10-questions dynamic quiz
-  const generateQuiz = () => {
-    let sourcePool = [...allQuestions];
-    if (filterChapter !== 'all') {
-      sourcePool = sourcePool.filter(q => q.chapter === filterChapter);
+  const getQuestionsForFilter = (filterValue: string): QuestionItem[] => {
+    if (filterValue === 'all') {
+      return allQuestions;
     }
 
-    // Try to get 10 random questions
+    if (filterValue.startsWith('chapter:')) {
+      const targetChapterName = filterValue.substring('chapter:'.length);
+      const structuredParts = getStructuredCatechism();
+      for (const part of structuredParts) {
+        for (const sec of part.sections) {
+          for (const chap of sec.chapters) {
+            if (chap.name === targetChapterName) {
+              return chap.lessons.flatMap(l => l.questions);
+            }
+          }
+        }
+      }
+      return allQuestions.filter(q => q.chapter === targetChapterName);
+    }
+
+    if (filterValue.startsWith('lesson:')) {
+      const targetLessonId = parseInt(filterValue.substring('lesson:'.length), 10);
+      const structuredParts = getStructuredCatechism();
+      for (const part of structuredParts) {
+        for (const sec of part.sections) {
+          for (const les of sec.lessonsWithoutChapter) {
+            if (les.lessonId === targetLessonId) {
+              return les.questions;
+            }
+          }
+        }
+      }
+      return allQuestions.filter(q => {
+        const match = q.lesson.match(/BÀI\s+(\d+)/i);
+        return match ? parseInt(match[1], 10) === targetLessonId : false;
+      });
+    }
+
+    return allQuestions;
+  };
+
+  // Generate 10-questions dynamic quiz or quick review quiz
+  const generateQuiz = () => {
+    const isOverrideActive = overrideQuestions !== undefined && overrideQuestions.length > 0;
+    const sourcePool = isOverrideActive ? overrideQuestions : getQuestionsForFilter(filterChapter);
+    if (!sourcePool || sourcePool.length === 0) {
+      setQuizQuestions([]);
+      return;
+    }
+
+    // Try to get 10 random questions, or use all override questions
     const shuffledPool = [...sourcePool].sort(() => Math.random() - 0.5);
-    const selectedQuestions = shuffledPool.slice(0, Math.min(10, shuffledPool.length));
+    const selectedQuestions = isOverrideActive ? shuffledPool : shuffledPool.slice(0, Math.min(10, shuffledPool.length));
 
     const generated: QuizQuestion[] = selectedQuestions.map((q) => {
-      // Find distractors of the same chapter
-      let sameChapterPool = sourcePool.filter(item => item.chapter === q.chapter && item.id !== q.id);
-      
-      // Fallback to any other questions if same chapter is too small
-      if (sameChapterPool.length < 3) {
-        sameChapterPool = allQuestions.filter(item => item.id !== q.id);
+      // Find distractors (prefer current selected scope first, then fallback to same chapter, then all questions)
+      let distractorPool = isOverrideActive ? allQuestions.filter(item => item.id !== q.id) : sourcePool.filter(item => item.id !== q.id);
+      if (distractorPool.length < 3) {
+        distractorPool = allQuestions.filter(item => item.id !== q.id);
       }
 
       // Select 3 random distractors
-      const shuffledDistractors = sameChapterPool.sort(() => Math.random() - 0.5);
+      const shuffledDistractors = [...distractorPool].sort(() => Math.random() - 0.5);
       const distractors = shuffledDistractors.slice(0, 3).map(item => item.answer);
 
       // Mix and shuffle options
@@ -77,7 +120,7 @@ export const QuizMode: React.FC<QuizModeProps> = ({
 
   useEffect(() => {
     generateQuiz();
-  }, [filterChapter]);
+  }, [filterChapter, overrideQuestions]);
 
   const handleSelectOption = (index: number) => {
     if (isAnswered) return;
@@ -125,30 +168,53 @@ export const QuizMode: React.FC<QuizModeProps> = ({
 
           {/* Filters */}
           {!isFinished && quizQuestions.length > 0 && currentQuizIndex === 0 && !isAnswered && (
-            <div className="flex flex-col sm:flex-row gap-3">
-              <label className="text-xs font-semibold text-gray-400 dark:text-slate-500 self-center shrink-0 font-mono uppercase">Phạm Vi Thi:</label>
-              <select
-                value={filterChapter}
-                onChange={(e) => setFilterChapter(e.target.value)}
-                className="w-full rounded-2xl border border-gray-250 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-gray-700 dark:text-slate-200 outline-none focus:border-emerald-300 dark:focus:border-emerald-700/80 focus:ring-4 focus:ring-emerald-100 dark:focus:ring-emerald-950/20 max-w-md"
-              >
-                <option value="all">Ngẫu nhiên toàn bộ giáo trình</option>
-                {Object.entries(getGroupedCatechismByPart()).map(([partKey, partVal]) => {
-                  const partLabel = partKey.startsWith('PHẦN THÚ') ? 'Phần I: Tuyên Xưng Đức Tin' :
-                                    partKey.includes('NHIỆM CỤC BÍ TÍCH') ? 'Phần II: Cử Hành Mầu Nhiệm Phụng Vụ' :
-                                    partKey.includes('ƠN GỌI CỦA CON NGƯỜI') ? 'Phần III: Đời Sống Đức Kitô' :
-                                    'Phần IV: Kinh Nguyện Kitô Giáo';
-                  return (
-                    <optgroup label={partLabel} key={partKey} className="font-bold text-gray-400 dark:text-slate-500 bg-white dark:bg-slate-900 mt-2">
-                      {Object.keys(partVal.chapters).map((chapKey) => (
-                        <option key={chapKey} value={chapKey} className="font-normal text-gray-700 dark:text-slate-200 bg-white dark:bg-slate-900">
-                          {chapKey}
-                        </option>
-                      ))}
-                    </optgroup>
-                  );
-                })}
-              </select>
+            <div className="flex flex-col sm:flex-row gap-3 items-center justify-between w-full">
+              {overrideQuestions && overrideQuestions.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2.5 w-full">
+                  <span className="inline-flex items-center gap-1 text-xs font-extrabold px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25">
+                    <Sparkles className="h-3 w-3 animate-spin text-amber-550" />
+                    ⚡ ĐỒNG BỘ: Chế độ ôn tập 5 câu chưa thuộc
+                  </span>
+                  {onClearOverrideQuestions && (
+                    <button 
+                      onClick={onClearOverrideQuestions}
+                      className="text-xs font-bold text-blue-500 dark:text-blue-400 hover:underline hover:text-blue-600 cursor-pointer pt-0.5 ml-2 transition-all"
+                    >
+                      Quay lại chọn phạm vi thi thường →
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <label className="text-xs font-semibold text-gray-400 dark:text-slate-500 self-center shrink-0 font-mono uppercase">Phạm Vi Thi:</label>
+                  <select
+                    value={filterChapter}
+                    onChange={(e) => setFilterChapter(e.target.value)}
+                    className="w-full rounded-2xl border border-gray-250 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-gray-700 dark:text-slate-200 outline-none focus:border-emerald-300 dark:focus:border-emerald-700/80 focus:ring-4 focus:ring-emerald-100 dark:focus:ring-emerald-950/20 max-w-md"
+                  >
+                    <option value="all">Ngẫu nhiên toàn bộ giáo trình</option>
+                    {getStructuredCatechism().map((part) => {
+                      const partLabel = `${part.short}: ${part.title}`;
+                      return (
+                        <optgroup label={partLabel} key={part.name} className="font-bold text-gray-400 dark:text-slate-500 bg-white dark:bg-slate-900 mt-2">
+                          {part.sections.flatMap((sec) => [
+                            ...sec.chapters.map((chap) => (
+                              <option key={`chapter:${chap.name}`} value={`chapter:${chap.name}`} className="font-normal text-gray-700 dark:text-slate-200 bg-white dark:bg-slate-900">
+                                {chap.name}
+                              </option>
+                            )),
+                            ...sec.lessonsWithoutChapter.map((les) => (
+                              <option key={`lesson:${les.lessonId}`} value={`lesson:${les.lessonId}`} className="font-normal text-gray-700 dark:text-slate-200 bg-white dark:bg-slate-900">
+                                {les.name}
+                              </option>
+                            ))
+                          ])}
+                        </optgroup>
+                      );
+                    })}
+                  </select>
+                </>
+              )}
             </div>
           )}
         </div>

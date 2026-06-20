@@ -10,6 +10,7 @@ import { QuestionItem, UserProgress } from './types';
 import { CATECHISM_DATA } from './data';
 import { WritingQuiz } from './components/WritingQuiz';
 import KinhSangSoiModal from './components/KinhSangSoiModal';
+import { Footer } from './components/Footer';
 
 const LOCAL_STORAGE_KEY = 'giaoly_progress_v1';
 
@@ -27,6 +28,13 @@ export default function App() {
   const [progress, setProgress] = useState<UserProgress>(INITIAL_PROGRESS);
   const [searchedQuestion, setSearchedQuestion] = useState<QuestionItem | null>(null);
   const [isKinhOpen, setIsKinhOpen] = useState<boolean>(true);
+  const [quickReviewQuestions, setQuickReviewQuestions] = useState<QuestionItem[] | undefined>(undefined);
+
+  useEffect(() => {
+    if (view !== 'quiz') {
+      setQuickReviewQuestions(undefined);
+    }
+  }, [view]);
   const [zenMode, setZenMode] = useState<boolean>(() => {
     return localStorage.getItem('giaoly_zen_mode') === 'true';
   });
@@ -58,6 +66,29 @@ export default function App() {
     if (saved) {
       try {
         const parsed: UserProgress = JSON.parse(saved);
+        
+        let historyData = parsed.learnedHistory || [];
+        const currentLearnedCount = (parsed.learned || []).length;
+
+        // If there is no historical sequence or it is empty, backfill it
+        if (historyData.length === 0) {
+          const today = new Date();
+          const generatedHistory = [];
+          for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(today.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+            // Linear progression mockup for historical visuals
+            const factor = currentLearnedCount > 0 ? (7 - i) / 7 : 0;
+            const approxCount = Math.max(0, Math.round(currentLearnedCount * factor));
+            generatedHistory.push({
+              date: dateStr,
+              count: approxCount
+            });
+          }
+          historyData = generatedHistory;
+        }
+
         // Clean and validate structures
         setProgress({
           learned: parsed.learned || [],
@@ -65,11 +96,29 @@ export default function App() {
           reviewStates: parsed.reviewStates || {},
           streak: parsed.streak || 0,
           lastActive: parsed.lastActive || null,
-          quizScores: parsed.quizScores || []
+          quizScores: parsed.quizScores || [],
+          learnedHistory: historyData
         });
       } catch (err) {
         console.error('Error parsing local progression:', err);
       }
+    } else {
+      // Create empty initial state but with 7-days flat baseline of 0 learned questions
+      const today = new Date();
+      const generatedHistory = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(today.getDate() - i);
+        const dateStr = d.toISOString().split('T')[0];
+        generatedHistory.push({
+          date: dateStr,
+          count: 0
+        });
+      }
+      setProgress({
+        ...INITIAL_PROGRESS,
+        learnedHistory: generatedHistory
+      });
     }
     updateStreak();
   }, []);
@@ -128,11 +177,28 @@ export default function App() {
       if (!newNeedsReview.includes(id)) newNeedsReview.push(id);
     }
 
+    const todayStr = new Date().toISOString().split('T')[0];
+    let updatedHistory = [...(progress.learnedHistory || [])];
+    
+    // Find index of today in historical sequence
+    const todayIndex = updatedHistory.findIndex(h => h.date === todayStr);
+    if (todayIndex >= 0) {
+      updatedHistory[todayIndex] = { ...updatedHistory[todayIndex], count: newLearned.length };
+    } else {
+      updatedHistory.push({ date: todayStr, count: newLearned.length });
+    }
+    updatedHistory.sort((a, b) => a.date.localeCompare(b.date));
+    
+    if (updatedHistory.length > 30) {
+      updatedHistory = updatedHistory.slice(updatedHistory.length - 30);
+    }
+
     saveProgress({
       ...progress,
       learned: newLearned,
       needsReview: newNeedsReview,
-      lastActive: new Date().toISOString().split('T')[0]
+      lastActive: todayStr,
+      learnedHistory: updatedHistory
     });
   };
 
@@ -149,6 +215,15 @@ export default function App() {
       quizScores: [...progress.quizScores, scoreItem],
       lastActive: new Date().toISOString().split('T')[0]
     });
+  };
+
+  const handleStartQuickReview = () => {
+    if (progress.needsReview.length === 0) return;
+    const reviewPool = CATECHISM_DATA.filter(q => progress.needsReview.includes(q.id));
+    const shuffled = [...reviewPool].sort(() => Math.random() - 0.5);
+    const selected = shuffled.slice(0, Math.min(5, shuffled.length));
+    setQuickReviewQuestions(selected);
+    setView('quiz');
   };
 
   const handleSelectSearchedQuestion = (item: QuestionItem) => {
@@ -215,6 +290,7 @@ export default function App() {
                   totalQuestions={CATECHISM_DATA.length}
                   onNavigate={setView}
                   onOpenKinhSangSoi={() => setIsKinhOpen(true)}
+                  onStartQuickReview={handleStartQuickReview}
                 />
               </motion.div>
             )}
@@ -267,6 +343,8 @@ export default function App() {
                   progress={progress}
                   onSaveQuizResult={handleSaveQuizResult}
                   zenMode={isZenActive}
+                  overrideQuestions={quickReviewQuestions}
+                  onClearOverrideQuestions={() => setQuickReviewQuestions(undefined)}
                 />
               </motion.div>
             )}
@@ -289,6 +367,7 @@ export default function App() {
               </motion.div>
             )}
           </AnimatePresence>
+          {!isZenActive && <Footer onNavigate={setView} currentView={view} />}
         </div>
       </main>
 

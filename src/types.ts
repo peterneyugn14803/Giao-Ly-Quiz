@@ -29,4 +29,8 @@ export interface UserProgress {
     correct: number;
     percentage: number;
   }[];
+  learnedHistory?: {
+    date: string; // "YYYY-MM-DD"
+    count: number; // Cumulative count on this day
+  }[];
 }
