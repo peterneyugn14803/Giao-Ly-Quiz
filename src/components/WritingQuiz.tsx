@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { 
   Brain, Sparkles, CheckCircle2, AlertCircle, RefreshCw, 
-  Play, BookOpen, Layers, ChevronRight, HelpCircle, 
-  Award, CornerDownLeft, Volume2, Info, ArrowRight, ArrowLeft, Filter
+  Play, BookOpen, Layers, ChevronRight, ChevronDown, HelpCircle, 
+  Award, CornerDownLeft, Volume2, Info, ArrowRight, ArrowLeft, Filter,
+  Check, Minus, X, Mic, MicOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 import { QuestionItem, UserProgress } from '../types';
 import { getStructuredCatechism } from '../data';
 
@@ -129,25 +131,69 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
   toggleLearnedStatus,
   zenMode = false
 }) => {
-  // 1. Scope selection states
-  const [filterChapter, setFilterChapter] = useState<string>('all');
+  // 1. Scope selection states (multi-select across Parts, Chapters, and Lessons)
+  const structuredParts = useMemo(() => getStructuredCatechism(), []);
+  const allStructuredLessonIds = useMemo(
+    () =>
+      structuredParts.flatMap((part) =>
+        part.sections.flatMap((sec) => [
+          ...sec.chapters.flatMap((chap) => chap.lessons.map((les) => les.lessonId)),
+          ...sec.lessonsWithoutChapter.map((les) => les.lessonId),
+        ])
+      ),
+    [structuredParts]
+  );
+  const [selectedLessonIds, setSelectedLessonIds] = useState<number[]>(() => allStructuredLessonIds);
+  const [isScopeDropdownOpen, setIsScopeDropdownOpen] = useState<boolean>(false);
+  const [expandedChapters, setExpandedChapters] = useState<string[]>([]);
+  const scopePickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (scopePickerRef.current && !scopePickerRef.current.contains(event.target as Node)) {
+        setIsScopeDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+  
+  // Custom non-blocking Dialog & Toast states to prevent sandbox iframe crashes
+  const [showExitConfirm, setShowExitConfirm] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => {
+        setToastMessage(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
   const [sessionQuestions, setSessionQuestions] = useState<QuestionItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [quizStarted, setQuizStarted] = useState<boolean>(false);
+  const [questionCount, setQuestionCount] = useState<number | 'all'>(10);
+  const [customCountInput, setCustomCountInput] = useState<string>('10');
   
-  // 2. Typing answer state
+  // 2. Typing & Voice answer state
   const [userAnswer, setUserAnswer] = useState<string>('');
+  const {
+    transcript,
+    listening,
+    resetTranscript,
+    browserSupportsSpeechRecognition,
+    browserSupportsContinuousListening,
+    isMicrophoneAvailable,
+  } = useSpeechRecognition();
+  const voiceBaseTextRef = useRef<string>('');
+  const isVoiceActiveRef = useRef<boolean>(false);
   
   // 3. Scoring modes & response results representation
-  const [isGrading, setIsGrading] = useState<boolean>(false);
   const [scoreResult, setScoreResult] = useState<{
     score: number | null;
     feedback: string;
-    missingPoints: string[];
-    gradeMethod: 'ai' | 'local' | 'manual';
-    localScore?: number;
-    localMatched?: string[];
-    localTotal?: string[];
+    gradeMethod: 'local' | 'manual';
   } | null>(null);
 
   // 4. Manual grading input overrides, if preferred
@@ -157,58 +203,219 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
   const [scoresHistory, setScoresHistory] = useState<number[]>([]);
   const [showSummary, setShowSummary] = useState<boolean>(false);
 
-  const getQuestionsForFilter = (filterValue: string): QuestionItem[] => {
-    if (filterValue === 'all') {
+  const selectedLessonSet = useMemo(() => new Set(selectedLessonIds), [selectedLessonIds]);
+
+  const isAllSelected =
+    allStructuredLessonIds.length > 0 &&
+    selectedLessonIds.length === allStructuredLessonIds.length;
+
+  const filteredQuestions = useMemo(() => {
+    if (isAllSelected) {
       return allQuestions;
     }
-
-    if (filterValue.startsWith('chapter:')) {
-      const targetChapterName = filterValue.substring('chapter:'.length);
-      const structuredParts = getStructuredCatechism();
-      for (const part of structuredParts) {
-        for (const sec of part.sections) {
-          for (const chap of sec.chapters) {
-            if (chap.name === targetChapterName) {
-              return chap.lessons.flatMap(l => l.questions);
-            }
-          }
-        }
-      }
-      return allQuestions.filter(q => q.chapter === targetChapterName);
+    if (selectedLessonIds.length === 0) {
+      return [];
     }
+    return allQuestions.filter((q) => {
+      const match = q.lesson.match(/BÀI\s+(\d+)/i);
+      const lessonNum = match ? parseInt(match[1], 10) : 0;
+      return selectedLessonSet.has(lessonNum);
+    });
+  }, [allQuestions, isAllSelected, selectedLessonIds.length, selectedLessonSet]);
 
-    if (filterValue.startsWith('lesson:')) {
-      const targetLessonId = parseInt(filterValue.substring('lesson:'.length), 10);
-      const structuredParts = getStructuredCatechism();
-      for (const part of structuredParts) {
-        for (const sec of part.sections) {
-          for (const les of sec.lessonsWithoutChapter) {
-            if (les.lessonId === targetLessonId) {
-              return les.questions;
-            }
-          }
-        }
-      }
-      return allQuestions.filter(q => {
-        const match = q.lesson.match(/BÀI\s+(\d+)/i);
-        return match ? parseInt(match[1], 10) === targetLessonId : false;
+  const effectiveQuestionCount = useMemo(() => {
+    if (filteredQuestions.length === 0) return 0;
+    if (questionCount === 'all') return filteredQuestions.length;
+    if (questionCount < 1) return 0;
+    return Math.min(questionCount, filteredQuestions.length);
+  }, [filteredQuestions.length, questionCount]);
+
+  const toggleAllScopes = () => {
+    if (isAllSelected) {
+      setSelectedLessonIds([]);
+    } else {
+      setSelectedLessonIds(allStructuredLessonIds);
+    }
+  };
+
+  const toggleGroupLessonIds = (groupIds: number[]) => {
+    const allInGroupSelected = groupIds.length > 0 && groupIds.every((id) => selectedLessonSet.has(id));
+    if (allInGroupSelected) {
+      const removeSet = new Set(groupIds);
+      setSelectedLessonIds((prev) => prev.filter((id) => !removeSet.has(id)));
+    } else {
+      setSelectedLessonIds((prev) => {
+        const nextSet = new Set(prev);
+        groupIds.forEach((id) => nextSet.add(id));
+        return Array.from(nextSet);
       });
     }
-
-    return allQuestions;
   };
+
+  const toggleChapterExpand = (chapterKey: string) => {
+    setExpandedChapters((prev) =>
+      prev.includes(chapterKey) ? prev.filter((k) => k !== chapterKey) : [...prev, chapterKey]
+    );
+  };
+
+  const selectedScopeChips = useMemo(() => {
+    if (isAllSelected || selectedLessonIds.length === 0) return [];
+    const chips: { key: string; label: string; lessonIds: number[] }[] = [];
+
+    structuredParts.forEach((part) => {
+      const partLessonIds = part.sections.flatMap((sec) => [
+        ...sec.chapters.flatMap((chap) => chap.lessons.map((les) => les.lessonId)),
+        ...sec.lessonsWithoutChapter.map((les) => les.lessonId),
+      ]);
+      const allPartSelected =
+        partLessonIds.length > 0 && partLessonIds.every((id) => selectedLessonSet.has(id));
+
+      if (allPartSelected) {
+        chips.push({
+          key: `part:${part.short}`,
+          label: `${part.short}: ${part.title}`,
+          lessonIds: partLessonIds,
+        });
+        return;
+      }
+
+      part.sections.forEach((sec) => {
+        sec.chapters.forEach((chap) => {
+          const chapIds = chap.lessons.map((les) => les.lessonId);
+          const allChapSelected = chapIds.length > 0 && chapIds.every((id) => selectedLessonSet.has(id));
+          if (allChapSelected) {
+            chips.push({
+              key: `chapter:${chap.name}`,
+              label: chap.name,
+              lessonIds: chapIds,
+            });
+          } else {
+            chap.lessons.forEach((les) => {
+              if (selectedLessonSet.has(les.lessonId)) {
+                chips.push({
+                  key: `lesson:${les.lessonId}`,
+                  label: les.name,
+                  lessonIds: [les.lessonId],
+                });
+              }
+            });
+          }
+        });
+
+        sec.lessonsWithoutChapter.forEach((les) => {
+          if (selectedLessonSet.has(les.lessonId)) {
+            chips.push({
+              key: `lesson:${les.lessonId}`,
+              label: les.name,
+              lessonIds: [les.lessonId],
+            });
+          }
+        });
+      });
+    });
+
+    return chips;
+  }, [isAllSelected, selectedLessonIds.length, selectedLessonSet, structuredParts]);
+
+  const selectedScopeSummaryText = useMemo(() => {
+    if (isAllSelected) {
+      return `Mọi chương bài trong Giáo trình (Tất cả ${allQuestions.length} câu)`;
+    }
+    if (selectedLessonIds.length === 0) {
+      return 'Chưa chọn chương hoặc bài nào';
+    }
+    if (selectedScopeChips.length === 1) {
+      return `${selectedScopeChips[0].label} (${filteredQuestions.length} câu)`;
+    }
+    return `Đã chọn ${selectedScopeChips.length} mục (${filteredQuestions.length} câu)`;
+  }, [allQuestions.length, filteredQuestions.length, isAllSelected, selectedLessonIds.length, selectedScopeChips]);
 
   // Focus reference for textareas
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const stopVoiceInput = useCallback(() => {
+    isVoiceActiveRef.current = false;
+    if (listening) {
+      SpeechRecognition.stopListening().catch(() => {});
+    }
+  }, [listening]);
+
+  const toggleVoiceInput = async () => {
+    if (scoreResult !== null) return;
+
+    if (listening) {
+      stopVoiceInput();
+      return;
+    }
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setToastMessage('Nhập bằng giọng nói cần kết nối mạng. Khi ngoại tuyến, bạn vẫn có thể gõ và chấm điểm tự luận bình thường.');
+      return;
+    }
+
+    if (!browserSupportsSpeechRecognition) {
+      setToastMessage('Trình duyệt của bạn chưa hỗ trợ nhập liệu bằng giọng nói. Vui lòng thử Chrome, Edge hoặc Safari.');
+      return;
+    }
+
+    if (!isMicrophoneAvailable) {
+      setToastMessage('Không thể truy cập Micro. Vui lòng kiểm tra và cấp quyền Micro cho trình duyệt.');
+      return;
+    }
+
+    try {
+      voiceBaseTextRef.current = userAnswer;
+      isVoiceActiveRef.current = true;
+      resetTranscript();
+      await SpeechRecognition.startListening({
+        continuous: browserSupportsContinuousListening,
+        interimResults: true,
+        language: 'vi-VN',
+      });
+    } catch {
+      isVoiceActiveRef.current = false;
+      setToastMessage('Không thể bật nhận diện giọng nói. Vui lòng kiểm tra quyền Micro.');
+    }
+  };
+
+  useEffect(() => {
+    if (!isVoiceActiveRef.current || scoreResult !== null) return;
+
+    if (transcript) {
+      const base = voiceBaseTextRef.current;
+      const separator = base && !/\s$/.test(base) ? ' ' : '';
+      setUserAnswer(`${base}${separator}${transcript}`);
+    }
+
+    if (!listening) {
+      isVoiceActiveRef.current = false;
+    }
+  }, [transcript, listening, scoreResult]);
+
+  useEffect(() => {
+    return () => {
+      SpeechRecognition.abortListening().catch(() => {});
+    };
+  }, []);
+
   // Restart / Init writing quiz sessions
   const startQuizSession = () => {
-    const filtered = getQuestionsForFilter(filterChapter);
-    
-    // Select up to 10 random questions from the subset for an intense writing workout
-    const shuffled = filtered.sort(() => 0.5 - Math.random());
-    const selected = shuffled.slice(0, 10);
-    
+    if (filteredQuestions.length === 0) {
+      setToastMessage('Vui lòng chọn ít nhất 1 chương hoặc bài học để bắt đầu!');
+      return;
+    }
+
+    stopVoiceInput();
+    resetTranscript();
+
+    // Fisher-Yates shuffle on a shallow copy, then take the user-selected number of questions
+    const shuffled = [...filteredQuestions];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    const selected = shuffled.slice(0, effectiveQuestionCount);
+
     setSessionQuestions(selected);
     setCurrentIndex(0);
     setUserAnswer('');
@@ -217,7 +424,8 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
     setQuizStarted(true);
     setShowSummary(false);
     setShowManualCorrection(false);
-    
+    setIsScopeDropdownOpen(false);
+
     // Auto-focus on start
     setTimeout(() => {
       textareaRef.current?.focus();
@@ -227,6 +435,9 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
   const currentQuestion = sessionQuestions[currentIndex];
 
   const handleNextQuestion = () => {
+    stopVoiceInput();
+    resetTranscript();
+
     if (currentIndex + 1 < sessionQuestions.length) {
       setCurrentIndex(prev => prev + 1);
       setUserAnswer('');
@@ -246,82 +457,22 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
     }
   };
 
-  const handleSubmitAndGrade = async (preferredMethod: 'ai' | 'local') => {
+  const handleSubmitAndGrade = () => {
     if (!currentQuestion) return;
-    setIsGrading(true);
+    stopVoiceInput();
 
-    // Always calculate local score as robust fallback or comparison criteria
     const localGrading = calculateLocalScore(userAnswer, currentQuestion.answer);
 
-    if (preferredMethod === 'local') {
-      // Pure client-side grading with Vietnamese NLP matching
-      setScoreResult({
-        score: localGrading.score,
-        gradeMethod: 'local',
-        feedback: localGrading.score >= 80 
-          ? 'Bài làm xuất sắc!'
-          : localGrading.score >= 50
-          ? 'Bài làm khá ổn. Bạn đã nắm bắt được ý chính cốt lõi nhưng còn thiếu một số thuật ngữ cụ thể hơn của đáp án gốc.'
-          : 'Bài làm chưa đạt yêu cầu. Rất mong bạn xem thêm đáp án gốc và gõ lại lần nữa để tăng phản xạ ghi nhớ.',
-        missingPoints: localGrading.totalKeywords.filter(kw => !localGrading.matchedKeywords.includes(kw)),
-        localScore: localGrading.score,
-        localMatched: localGrading.matchedKeywords,
-        localTotal: localGrading.totalKeywords
-      });
-      setScoresHistory(prev => [...prev, localGrading.score]);
-      setIsGrading(false);
-      return;
-    }
-
-    // Server-Side AI Grade via route
-    try {
-      const response = await fetch('/api/grade-writing', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          question: currentQuestion.question,
-          correctAnswer: currentQuestion.answer,
-          userAnswer: userAnswer,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('API server failed during evaluation process.');
-      }
-
-      const aiResult = await response.json();
-      
-      setScoreResult({
-        score: aiResult.score ?? localGrading.score, // Fallback safely to local if null
-        gradeMethod: 'ai',
-        feedback: aiResult.feedback || 'Không có nhận xét chi tiết.',
-        missingPoints: aiResult.missingPoints || [],
-        localScore: localGrading.score,
-        localMatched: localGrading.matchedKeywords,
-        localTotal: localGrading.totalKeywords
-      });
-
-      setScoresHistory(prev => [...prev, aiResult.score ?? localGrading.score]);
-    } catch (err) {
-      console.error('AI scoring route failed. Defaulting to local keyword evaluation match:', err);
-      // Fallback explicitly to local scoring gracefully
-      setScoreResult({
-        score: localGrading.score,
-        gradeMethod: 'local',
-        feedback: `[Local Match Check] Chấm điểm cục bộ tự động do mất kết nối AI: ${
-          localGrading.score >= 80 ? 'Bạn nắm ý rất tốt.' : 'Bạn nên ôn kỹ thêm đáp án gốc.'
-        }`,
-        missingPoints: localGrading.totalKeywords.filter(kw => !localGrading.matchedKeywords.includes(kw)),
-        localScore: localGrading.score,
-        localMatched: localGrading.matchedKeywords,
-        localTotal: localGrading.totalKeywords
-      });
-      setScoresHistory(prev => [...prev, localGrading.score]);
-    } finally {
-      setIsGrading(false);
-    }
+    setScoreResult({
+      score: localGrading.score,
+      gradeMethod: 'local',
+      feedback: localGrading.score >= 80
+        ? 'Bài làm xuất sắc! Bạn đã nắm vững các từ khóa cốt lõi của câu giáo lý.'
+        : localGrading.score >= 50
+        ? 'Bài làm khá ổn. Bạn đã nắm bắt được ý chính cốt lõi nhưng còn thiếu một số thuật ngữ cụ thể hơn của đáp án gốc.'
+        : 'Bài làm chưa đạt yêu cầu. Bạn hãy xem thêm đáp án gốc và gõ lại lần nữa để tăng phản xạ ghi nhớ.',
+    });
+    setScoresHistory(prev => [...prev, localGrading.score]);
   };
 
   const handleManualScoreSelect = (overrideScore: number) => {
@@ -376,12 +527,14 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
                   Chế Độ Thi Tự Luận & Gõ Câu Trả Lời
                 </h2>
                 <p className="text-gray-550 dark:text-slate-405 text-xs sm:text-sm leading-relaxed">
-                  Tập luyện viết câu trả lời trực tiếp. Hệ thống hỗ trợ so khớp <strong>Từ khóa cốt lõi</strong> thông minh cục bộ hoặc sử dụng <strong>Trí Tuệ Nhân Tạo AI Gemini</strong> để chấm điểm theo ý chính, chấp nhận từ đồng nghĩa, khuyến khích sự hiểu biết sâu xa.
+                  Tập luyện viết câu trả lời trực tiếp. Hệ thống tự động so khớp <strong>Từ khóa cốt lõi</strong> cục bộ và đối chiếu từng từ ngữ với đáp án gốc, giúp bạn kiểm tra độ chính xác và ghi nhớ sâu sắc nội dung giáo lý.
                 </p>
               </div>
               <div className="bg-orange-50/40 dark:bg-orange-950/20 p-5 rounded-2xl border border-orange-100/30 shrink-0 w-full md:w-auto text-center md:text-left">
                 <div className="text-xs font-bold text-orange-600 dark:text-orange-400 mb-1">MỤC TIÊU PHÒNG THI</div>
-                <div className="text-2xl font-black font-mono text-orange-700 dark:text-orange-400">10 / 10</div>
+                <div className="text-2xl font-black font-mono text-orange-700 dark:text-orange-400">
+                  {effectiveQuestionCount} <span className="text-sm font-bold text-orange-500/70">/ {filteredQuestions.length}</span>
+                </div>
                 <div className="text-[10px] text-gray-400 dark:text-slate-500 font-bold tracking-widest font-mono uppercase">Câu tự luận ngẫu nhiên</div>
               </div>
             </div>
@@ -402,40 +555,371 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
           {/* Configuration Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
-            {/* Scope selection */}
-            <div className="space-y-3.5">
-              <label className="text-xs font-bold tracking-wider uppercase text-gray-500 dark:text-slate-400 font-sans block">
-                Phạm Vi Câu Hỏi Để Luyện Tự Luận:
-              </label>
+            {/* Scope selection (Multi-select Parts, Chapters & Lessons) */}
+            <div className="space-y-3" ref={scopePickerRef}>
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-xs font-bold tracking-wider uppercase text-gray-500 dark:text-slate-400 font-sans block">
+                  Phạm Vi Câu Hỏi Để Luyện Tự Luận:
+                </label>
+                <span className="text-[11px] font-bold font-mono text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-lg">
+                  {filteredQuestions.length} câu
+                </span>
+              </div>
+
               <div className="relative">
-                <select
-                  value={filterChapter}
-                  onChange={(e) => setFilterChapter(e.target.value)}
-                  className="w-full text-sm font-semibold rounded-2xl border border-gray-250 dark:border-slate-800 bg-white dark:bg-slate-900 py-3 px-4 text-gray-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                <button
+                  type="button"
+                  onClick={() => setIsScopeDropdownOpen((prev) => !prev)}
+                  className="w-full text-left text-sm font-semibold rounded-2xl border border-gray-250 dark:border-slate-800 bg-white dark:bg-slate-900 py-3 px-4 pr-10 text-gray-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all flex items-center justify-between cursor-pointer"
                 >
-                  <option value="all">Mọi chương bài trong Giáo trình (Tất cả {allQuestions.length} câu)</option>
-                  {getStructuredCatechism().map((part) => {
-                    const partLabel = `${part.short}: ${part.title}`;
+                  <span className="truncate">{selectedScopeSummaryText}</span>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500 flex items-center gap-1">
+                    <Filter className="h-4 w-4" />
+                    <ChevronDown className={`h-4 w-4 transition-transform ${isScopeDropdownOpen ? 'rotate-180' : ''}`} />
+                  </div>
+                </button>
+
+                {isScopeDropdownOpen && (
+                  <div className="absolute z-30 left-0 right-0 mt-2 rounded-2xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden">
+                    {/* Quick actions header */}
+                    <div className="flex items-center justify-between gap-2 px-4 py-2.5 bg-gray-50 dark:bg-slate-950 border-b border-gray-150 dark:border-slate-850">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={toggleAllScopes}
+                          className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          {isAllSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                        </button>
+                        {!isAllSelected && selectedLessonIds.length > 0 && (
+                          <>
+                            <span className="text-gray-300 dark:text-slate-700">•</span>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedLessonIds([])}
+                              className="text-xs font-semibold text-gray-500 dark:text-slate-400 hover:text-rose-500"
+                            >
+                              Xóa lựa chọn
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsScopeDropdownOpen(false)}
+                        className="text-xs font-bold px-2.5 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-colors"
+                      >
+                        Xong
+                      </button>
+                    </div>
+
+                    {/* Multi-level checklist */}
+                    <div className="max-h-80 overflow-y-auto p-2 space-y-2">
+                      {structuredParts.map((part) => {
+                        const partLessonIds = part.sections.flatMap((sec) => [
+                          ...sec.chapters.flatMap((chap) => chap.lessons.map((les) => les.lessonId)),
+                          ...sec.lessonsWithoutChapter.map((les) => les.lessonId),
+                        ]);
+                        const partQuestionCount = part.sections.reduce(
+                          (acc, sec) =>
+                            acc +
+                            sec.chapters.reduce(
+                              (cAcc, chap) =>
+                                cAcc + chap.lessons.reduce((lAcc, les) => lAcc + les.questions.length, 0),
+                              0
+                            ) +
+                            sec.lessonsWithoutChapter.reduce((lAcc, les) => lAcc + les.questions.length, 0),
+                          0
+                        );
+                        const selectedInPartCount = partLessonIds.filter((id) =>
+                          selectedLessonSet.has(id)
+                        ).length;
+                        const isPartChecked =
+                          partLessonIds.length > 0 && selectedInPartCount === partLessonIds.length;
+                        const isPartPartial =
+                          selectedInPartCount > 0 && selectedInPartCount < partLessonIds.length;
+
+                        return (
+                          <div
+                            key={part.name}
+                            className="rounded-xl border border-gray-150 dark:border-slate-850 overflow-hidden"
+                          >
+                            {/* Part row */}
+                            <button
+                              type="button"
+                              onClick={() => toggleGroupLessonIds(partLessonIds)}
+                              className="w-full flex items-center justify-between gap-2 px-3 py-2.5 bg-gray-50/80 dark:bg-slate-950/60 hover:bg-gray-100/80 dark:hover:bg-slate-850 transition-colors text-left"
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <span
+                                  className={`h-4 w-4 rounded flex items-center justify-center shrink-0 border transition-colors ${
+                                    isPartChecked || isPartPartial
+                                      ? 'bg-blue-600 border-blue-600 text-white'
+                                      : 'border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900'
+                                  }`}
+                                >
+                                  {isPartChecked && <Check className="h-3 w-3 stroke-[3]" />}
+                                  {isPartPartial && <Minus className="h-3 w-3 stroke-[3]" />}
+                                </span>
+                                <span className="text-xs font-black text-gray-800 dark:text-slate-100 truncate">
+                                  {part.short}: {part.title}
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-mono font-bold text-gray-400 dark:text-slate-500 shrink-0">
+                                {partQuestionCount} câu
+                              </span>
+                            </button>
+
+                            {/* Chapters & Lessons under Part */}
+                            <div className="divide-y divide-gray-100 dark:divide-slate-850/70 bg-white dark:bg-slate-900">
+                              {part.sections.flatMap((sec) => [
+                                ...sec.chapters.map((chap) => {
+                                  const chapIds = chap.lessons.map((les) => les.lessonId);
+                                  const chapKey = `${part.short}::${chap.name}`;
+                                  const isExpanded = expandedChapters.includes(chapKey);
+                                  const chapQuestionCount = chap.lessons.reduce(
+                                    (acc, l) => acc + l.questions.length,
+                                    0
+                                  );
+                                  const selectedInChap = chapIds.filter((id) =>
+                                    selectedLessonSet.has(id)
+                                  ).length;
+                                  const isChapChecked =
+                                    chapIds.length > 0 && selectedInChap === chapIds.length;
+                                  const isChapPartial =
+                                    selectedInChap > 0 && selectedInChap < chapIds.length;
+
+                                  return (
+                                    <div key={chapKey}>
+                                      <div className="flex items-center justify-between gap-2 px-3 py-2 hover:bg-blue-50/40 dark:hover:bg-slate-850/50 transition-colors">
+                                        <button
+                                          type="button"
+                                          onClick={() => toggleGroupLessonIds(chapIds)}
+                                          className="flex-1 flex items-center gap-2.5 text-left min-w-0"
+                                        >
+                                          <span
+                                            className={`h-4 w-4 rounded flex items-center justify-center shrink-0 border transition-colors ${
+                                              isChapChecked || isChapPartial
+                                                ? 'bg-blue-600 border-blue-600 text-white'
+                                                : 'border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900'
+                                            }`}
+                                          >
+                                            {isChapChecked && <Check className="h-3 w-3 stroke-[3]" />}
+                                            {isChapPartial && <Minus className="h-3 w-3 stroke-[3]" />}
+                                          </span>
+                                          <span className="text-xs font-semibold text-gray-700 dark:text-slate-200 line-clamp-2 leading-snug">
+                                            {chap.name}
+                                          </span>
+                                        </button>
+
+                                        <div className="flex items-center gap-1.5 shrink-0">
+                                          <span className="text-[10px] font-mono text-gray-400 dark:text-slate-500">
+                                            {chapQuestionCount} câu
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={() => toggleChapterExpand(chapKey)}
+                                            className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-400 dark:text-slate-500 transition-colors"
+                                            title={isExpanded ? 'Thu gọn danh sách bài' : 'Chọn từng bài trong chương'}
+                                          >
+                                            <ChevronRight
+                                              className={`h-3.5 w-3.5 transition-transform ${
+                                                isExpanded ? 'rotate-90 text-blue-500' : ''
+                                              }`}
+                                            />
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      {isExpanded && (
+                                        <div className="pl-8 pr-3 pb-2 pt-1 space-y-1 bg-slate-50/60 dark:bg-slate-950/30 border-t border-gray-100 dark:border-slate-850/50">
+                                          {chap.lessons.map((les) => {
+                                            const isLesChecked = selectedLessonSet.has(les.lessonId);
+                                            return (
+                                              <button
+                                                key={les.lessonId}
+                                                type="button"
+                                                onClick={() => toggleGroupLessonIds([les.lessonId])}
+                                                className="w-full flex items-center justify-between gap-2 py-1 px-2 rounded-lg hover:bg-white dark:hover:bg-slate-900 transition-colors text-left"
+                                              >
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                  <span
+                                                    className={`h-3.5 w-3.5 rounded flex items-center justify-center shrink-0 border transition-colors ${
+                                                      isLesChecked
+                                                        ? 'bg-blue-600 border-blue-600 text-white'
+                                                        : 'border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900'
+                                                    }`}
+                                                  >
+                                                    {isLesChecked && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+                                                  </span>
+                                                  <span className="text-[11px] font-medium text-gray-600 dark:text-slate-300 truncate">
+                                                    {les.name}
+                                                  </span>
+                                                </div>
+                                                <span className="text-[10px] font-mono text-gray-400 dark:text-slate-500 shrink-0">
+                                                  {les.questions.length}
+                                                </span>
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                }),
+                                ...sec.lessonsWithoutChapter.map((les) => {
+                                  const isLesChecked = selectedLessonSet.has(les.lessonId);
+                                  return (
+                                    <button
+                                      key={`lesson:${les.lessonId}`}
+                                      type="button"
+                                      onClick={() => toggleGroupLessonIds([les.lessonId])}
+                                      className="w-full flex items-center justify-between gap-2 px-3 py-2 hover:bg-blue-50/40 dark:hover:bg-slate-850/50 transition-colors text-left"
+                                    >
+                                      <div className="flex items-center gap-2.5 min-w-0">
+                                        <span
+                                          className={`h-4 w-4 rounded flex items-center justify-center shrink-0 border transition-colors ${
+                                            isLesChecked
+                                              ? 'bg-blue-600 border-blue-600 text-white'
+                                              : 'border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900'
+                                          }`}
+                                        >
+                                          {isLesChecked && <Check className="h-3 w-3 stroke-[3]" />}
+                                        </span>
+                                        <span className="text-xs font-semibold text-gray-700 dark:text-slate-200 line-clamp-2 leading-snug">
+                                          {les.name}
+                                        </span>
+                                      </div>
+                                      <span className="text-[10px] font-mono text-gray-400 dark:text-slate-500 shrink-0">
+                                        {les.questions.length} câu
+                                      </span>
+                                    </button>
+                                  );
+                                }),
+                              ])}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Selected chips preview */}
+              {!isAllSelected && selectedScopeChips.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {selectedScopeChips.map((chip) => (
+                    <span
+                      key={chip.key}
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-900/40 max-w-full"
+                    >
+                      <span className="truncate max-w-[210px]">{chip.label}</span>
+                      <button
+                        type="button"
+                        onClick={() => toggleGroupLessonIds(chip.lessonIds)}
+                        className="p-0.5 rounded-full hover:bg-blue-200/60 dark:hover:bg-blue-800/60 transition-colors shrink-0"
+                        title="Bỏ chọn mục này"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {selectedLessonIds.length === 0 && (
+                <p className="text-[11px] font-medium text-rose-500">
+                  Hãy chọn ít nhất một Phần, Chương hoặc Bài để bắt đầu luyện tập.
+                </p>
+              )}
+
+              {/* Question Count Selector */}
+              <div className="pt-2 space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <label
+                    htmlFor="writing-question-count-input"
+                    className="text-xs font-bold tracking-wider uppercase text-gray-500 dark:text-slate-400 font-sans block"
+                  >
+                    Số Lượng Câu Tự Luận:
+                  </label>
+                  <span className="text-[11px] font-mono font-semibold text-gray-400 dark:text-slate-500">
+                    Tối đa {filteredQuestions.length} câu
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {[5, 10, 15, 20].map((preset) => {
+                    const isActive = questionCount === preset;
+                    const isDisabled = filteredQuestions.length > 0 && preset > filteredQuestions.length;
                     return (
-                      <optgroup label={partLabel} key={part.name} className="font-bold text-gray-400 dark:text-slate-500 bg-white dark:bg-slate-900 mt-2">
-                        {part.sections.flatMap((sec) => [
-                          ...sec.chapters.map((chap) => (
-                            <option key={`chapter:${chap.name}`} value={`chapter:${chap.name}`} className="font-normal text-gray-700 dark:text-slate-200 bg-white dark:bg-slate-900">
-                              {chap.name}
-                            </option>
-                          )),
-                          ...sec.lessonsWithoutChapter.map((les) => (
-                            <option key={`lesson:${les.lessonId}`} value={`lesson:${les.lessonId}`} className="font-normal text-gray-700 dark:text-slate-200 bg-white dark:bg-slate-900">
-                              {les.name}
-                            </option>
-                          ))
-                        ])}
-                      </optgroup>
+                      <button
+                        key={preset}
+                        type="button"
+                        disabled={isDisabled}
+                        onClick={() => {
+                          setQuestionCount(preset);
+                          setCustomCountInput(String(preset));
+                        }}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold font-mono border transition-all disabled:opacity-35 disabled:pointer-events-none ${
+                          isActive
+                            ? 'bg-blue-600 border-blue-600 text-white shadow-sm shadow-blue-500/20'
+                            : 'bg-white dark:bg-slate-900 border-gray-250 dark:border-slate-800 text-gray-700 dark:text-slate-300 hover:border-blue-400'
+                        }`}
+                      >
+                        {preset} câu
+                      </button>
                     );
                   })}
-                </select>
-                <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500">
-                  <Filter className="h-4 w-4" />
+
+                  <button
+                    type="button"
+                    disabled={filteredQuestions.length === 0}
+                    onClick={() => {
+                      setQuestionCount('all');
+                      setCustomCountInput(String(filteredQuestions.length));
+                    }}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all disabled:opacity-35 disabled:pointer-events-none ${
+                      questionCount === 'all'
+                        ? 'bg-blue-600 border-blue-600 text-white shadow-sm shadow-blue-500/20'
+                        : 'bg-white dark:bg-slate-900 border-gray-250 dark:border-slate-800 text-gray-700 dark:text-slate-300 hover:border-blue-400'
+                    }`}
+                  >
+                    Tất cả
+                  </button>
+
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <span className="text-[11px] font-semibold text-gray-400 dark:text-slate-500">Tùy chỉnh:</span>
+                    <input
+                      id="writing-question-count-input"
+                      type="number"
+                      min={1}
+                      max={Math.max(1, filteredQuestions.length)}
+                      disabled={filteredQuestions.length === 0}
+                      value={questionCount === 'all' ? String(filteredQuestions.length) : customCountInput}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        setCustomCountInput(raw);
+                        if (raw === '') {
+                          setQuestionCount(0);
+                          return;
+                        }
+                        const parsed = parseInt(raw, 10);
+                        if (!Number.isNaN(parsed) && parsed >= 1) {
+                          setQuestionCount(parsed);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (questionCount === 'all') return;
+                        const parsed = parseInt(customCountInput, 10);
+                        const maxAllowed = Math.max(1, filteredQuestions.length);
+                        const safeVal = Number.isNaN(parsed) || parsed < 1 ? Math.min(10, maxAllowed) : Math.min(parsed, maxAllowed);
+                        setQuestionCount(safeVal);
+                        setCustomCountInput(String(safeVal));
+                      }}
+                      className="w-16 text-center text-xs font-bold font-mono rounded-xl border border-gray-250 dark:border-slate-800 bg-white dark:bg-slate-900 py-2 px-2 text-gray-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:opacity-40"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -448,18 +932,19 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
               </div>
               <ul className="list-disc list-inside space-y-1.5 leading-relaxed pl-1">
                 <li>Hệ thống <strong>Chế độ Tự luận</strong> tự động trích lọc các thực thể từ khóa quan trọng trong đáp án mẫu.</li>
-                <li>Bạn có thể so sánh bài làm của bản thân trực tiếp với đáp án mẫu, hoặc gõ và bấm gửi chấm điểm.</li>
-                <li>Nếu không muốn sử dụng AI, bạn hoàn toàn có thể tự đối chiếu thủ công và tự nhập điểm để cập nhật lịch sử.</li>
+                <li>Bạn có thể chọn nhiều Phần, nhiều Chương hoặc từng Bài cùng lúc để tổng hợp đề thi tự luận.</li>
+                <li>Bạn hoàn toàn có thể tự đối chiếu thủ công với đáp án gốc và tự nhập điểm để cập nhật lịch sử.</li>
               </ul>
             </div>
           </div>
 
           <button
             onClick={startQuizSession}
-            className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-450 text-white font-bold tracking-wide py-4 px-6 rounded-2xl shadow-lg shadow-blue-500/10 hover:shadow-blue-500/20 active:translate-y-0.5 transition-all text-sm flex items-center justify-center gap-2"
+            disabled={effectiveQuestionCount === 0}
+            className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-450 text-white font-bold tracking-wide py-4 px-6 rounded-2xl shadow-lg shadow-blue-500/10 hover:shadow-blue-500/20 active:translate-y-0.5 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-40 disabled:pointer-events-none"
           >
             <Play className="h-4 w-4" />
-            <span>BẮT ĐẦU PHÒNG THI TỰ LUẬN TRỰC TUYẾN</span>
+            <span>BẮT ĐẦU PHÒNG THI TỰ LUẬN ({effectiveQuestionCount} CÂU)</span>
           </button>
         </div>
       )}
@@ -472,9 +957,7 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
           <div className="flex justify-between items-center bg-white dark:bg-slate-900 border border-gray-150 dark:border-slate-850 px-5 py-3 rounded-2xl shadow-sm">
             <button
               onClick={() => {
-                if (window.confirm('Bạn có muốn hủy bỏ bài thi và quay lại không? Tiến trình hiện tại sẽ bị xóa.')) {
-                  setQuizStarted(false);
-                }
+                setShowExitConfirm(true);
               }}
               className="text-xs font-bold text-gray-500 dark:text-slate-400 hover:text-rose-500 transition-colors flex items-center gap-1"
             >
@@ -515,35 +998,91 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
 
           {/* Interactive Writing Arena */}
           <div className="bg-white dark:bg-slate-900 border border-gray-150 dark:border-slate-850 rounded-3xl p-6 sm:p-8 shadow-sm space-y-5">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-wrap justify-between items-center gap-2">
               <label className="text-xs font-bold tracking-wider uppercase text-gray-500 dark:text-slate-400 flex items-center gap-1.5">
                 <Brain className="h-4 w-4 text-orange-500" />
                 <span>Nhập câu trả lời tự luận của bạn:</span>
               </label>
-              <button
-                onClick={() => {
-                  // Direct copy or helpful placeholder hint if they are stuck
-                  setUserAnswer(currentQuestion.answer.slice(0, 30) + '...');
-                  textareaRef.current?.focus();
-                }}
-                className="text-[10px] font-bold text-gray-400 hover:text-blue-500 transition-colors"
-              >
-                Gợi ý 30 chữ đầu
-              </button>
+              <div className="flex items-center gap-3">
+                {userAnswer && scoreResult === null && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      stopVoiceInput();
+                      resetTranscript();
+                      voiceBaseTextRef.current = '';
+                      setUserAnswer('');
+                      textareaRef.current?.focus();
+                    }}
+                    className="text-[10px] font-bold text-gray-400 hover:text-rose-500 transition-colors"
+                  >
+                    Xóa bài làm
+                  </button>
+                )}
+                <button
+                  type="button"
+                  disabled={scoreResult !== null}
+                  onClick={() => {
+                    stopVoiceInput();
+                    resetTranscript();
+                    setUserAnswer(currentQuestion.answer.slice(0, 30) + '...');
+                    textareaRef.current?.focus();
+                  }}
+                  className="text-[10px] font-bold text-gray-400 hover:text-blue-500 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  Gợi ý 30 chữ đầu
+                </button>
+              </div>
             </div>
 
             <div className="relative">
               <textarea
                 ref={textareaRef}
                 value={userAnswer}
-                disabled={isGrading || scoreResult !== null}
-                onChange={(e) => setUserAnswer(e.target.value)}
+                disabled={scoreResult !== null}
+                onChange={(e) => {
+                  if (listening) {
+                    stopVoiceInput();
+                  }
+                  setUserAnswer(e.target.value);
+                }}
                 rows={5}
-                placeholder="Gõ đầy đủ ý nghĩa hoặc theo trí nhớ của bạn về câu giáo lý này..."
-                className="w-full text-sm sm:text-base font-medium rounded-2xl border border-gray-250 dark:border-slate-800 bg-white dark:bg-slate-950 p-4 pr-10 text-gray-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-gray-400 leading-relaxed disabled:bg-gray-50/50 dark:disabled:bg-slate-950/80"
+                placeholder="Gõ hoặc nhấn micro để nói câu trả lời giáo lý của bạn..."
+                className={`w-full text-sm sm:text-base font-medium rounded-2xl border bg-white dark:bg-slate-950 p-4 pb-14 text-gray-800 dark:text-slate-100 focus:outline-none focus:ring-2 transition-all placeholder:text-gray-400 leading-relaxed disabled:bg-gray-50/50 dark:disabled:bg-slate-950/80 ${
+                  listening
+                    ? 'border-rose-400 dark:border-rose-500/70 ring-2 ring-rose-500/15 focus:ring-rose-500/20 focus:border-rose-500'
+                    : 'border-gray-250 dark:border-slate-800 focus:ring-blue-500/20 focus:border-blue-500'
+                }`}
               />
-              <div className="absolute right-3.5 bottom-3 text-gray-400 dark:text-slate-500 pointer-events-none">
-                <CornerDownLeft className="h-4 w-4" />
+              <div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-2 pointer-events-none">
+                <button
+                  type="button"
+                  onClick={toggleVoiceInput}
+                  disabled={scoreResult !== null}
+                  className={`pointer-events-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all disabled:opacity-40 disabled:pointer-events-none ${
+                    listening
+                      ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-md shadow-rose-500/20'
+                      : 'bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 border border-blue-200/70 dark:border-blue-800/50'
+                  }`}
+                  title={listening ? 'Dừng nhập bằng giọng nói' : 'Nhập đáp án bằng giọng nói (Tiếng Việt)'}
+                >
+                  {listening ? (
+                    <>
+                      <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
+                      <MicOff className="h-3.5 w-3.5" />
+                      <span>Đang nghe... (Nhấn để dừng)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="h-3.5 w-3.5" />
+                      <span>Nhập bằng giọng nói</span>
+                    </>
+                  )}
+                </button>
+                <div className="flex items-center gap-1.5 text-[11px] font-mono text-gray-400 dark:text-slate-500 pr-1">
+                  <span>{userAnswer.trim() ? userAnswer.trim().split(/\s+/).length : 0} từ</span>
+                  <CornerDownLeft className="h-3.5 w-3.5" />
+                </div>
               </div>
             </div>
 
@@ -551,12 +1090,13 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
             {scoreResult === null ? (
               <div className="flex flex-col sm:flex-row gap-3">
                 <button
-                  onClick={() => handleSubmitAndGrade('local')}
-                  disabled={isGrading || !userAnswer.trim()}
-                  className="w-full bg-gray-50 hover:bg-gray-100 dark:bg-slate-850 dark:hover:bg-slate-800 text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-800 font-bold py-3.5 px-6 rounded-2xl disabled:opacity-40 disabled:pointer-events-none transition-all text-xs sm:text-sm flex items-center justify-center gap-1.5"
+                  onClick={handleSubmitAndGrade}
+                  disabled={!userAnswer.trim()}
+                  className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-450 text-white font-bold py-4 px-6 rounded-2xl shadow-lg shadow-blue-500/10 hover:shadow-blue-500/20 active:translate-y-0.5 transition-all text-xs sm:text-sm flex items-center justify-center gap-2 disabled:opacity-40 disabled:pointer-events-none"
+                  title="Chấm điểm so khớp từ khóa cục bộ không cần kết nối mạng"
                 >
-                  <RefreshCw className="h-3.5 w-3.5" />
-                  <span>Chấm điểm</span>
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>Chấm điểm (So khớp từ khóa cục bộ)</span>
                 </button>
               </div>
             ) : (
@@ -612,22 +1152,18 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
                 className="space-y-6"
               >
                 
-                {/* Score & AI Commentary Box */}
+                {/* Score & Commentary Box */}
                 <div className="bg-white dark:bg-slate-900 border border-gray-150 dark:border-slate-850 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
                   
                   {/* Score Indicator Badge */}
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-gray-150 dark:border-slate-850">
                     <div className="flex items-center gap-2.5">
                       <div className="p-3 bg-blue-50 dark:bg-blue-955/20 rounded-2xl text-blue-500 dark:text-blue-400">
-                        {scoreResult.gradeMethod === 'ai' ? (
-                          <Sparkles className="h-6 w-6 text-indigo-500" />
-                        ) : (
-                          <Brain className="h-6 w-6 text-blue-500" />
-                        )}
+                        <Brain className="h-6 w-6 text-blue-500" />
                       </div>
                       <div>
                         <div className="text-xs text-gray-400 dark:text-slate-500 font-black uppercase tracking-widest font-mono">
-                          PHƯƠNG thức chấm: {scoreResult.gradeMethod === 'ai' ? 'Trí tuệ nhân tạo (Gemini)' : scoreResult.gradeMethod === 'manual' ? 'Thiết lập thủ công' : 'So khớp Từ Khóa Cục bộ'}
+                          PHƯƠNG thức chấm: {scoreResult.gradeMethod === 'manual' ? 'Thiết lập thủ công' : 'So khớp Từ Khóa Cục bộ'}
                         </div>
                         <h4 className="text-sm font-bold text-gray-800 dark:text-slate-200 mt-0.5">
                           Đánh giá kết quả của học viên
@@ -643,15 +1179,11 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
                     </div>
                   </div>
 
-                  <div className="pt-3">
-                    <DiffViewer userAnswer={userAnswer} correctAnswer={currentQuestion.answer} />
-                  </div>
-
                   {/* Progressive Bar Chart */}
                   {scoreResult.score !== null && (
                     <div className="space-y-1.5">
                       <div className="flex justify-between text-[11px] font-bold text-gray-400 dark:text-slate-500 font-mono">
-                        <span>ĐỘ TRÙNG KHỚP Ý NGHĨA</span>
+                        <span>ĐỘ TRÙNG KHỚP Ý NGHĨA & THẦN HỌC</span>
                         <span>{scoreResult.score}%</span>
                       </div>
                       <div className="w-full bg-gray-100 dark:bg-slate-850 h-3 rounded-full overflow-hidden">
@@ -663,13 +1195,17 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
                     </div>
                   )}
 
-                  {/* AI Feedback Commentary */}
+                  {/* Feedback Commentary */}
                   <div className="bg-gray-50/50 dark:bg-slate-950/20 p-5 rounded-2xl border border-gray-150 dark:border-slate-850/60 leading-relaxed text-xs sm:text-sm text-gray-700 dark:text-slate-200 space-y-2.5">
-                    <div className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500 font-mono">Nhận xét từ Giám khảo AI:</div>
-                    <p className="font-medium whitespace-pre-line">{scoreResult.feedback}</p>
+                    <div className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500 font-mono">Nhận xét & Đánh giá chi tiết:</div>
+                    <p className="font-medium whitespace-pre-line leading-relaxed">{scoreResult.feedback}</p>
                   </div>
 
-                  
+                  {/* Text word-by-word diff comparison */}
+                  <div className="pt-2 border-t border-gray-150 dark:border-slate-850">
+                    <div className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500 font-mono mb-3">So sánh từ ngữ trực quan:</div>
+                    <DiffViewer userAnswer={userAnswer} correctAnswer={currentQuestion.answer} />
+                  </div>
 
                 </div>
 
@@ -680,7 +1216,7 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
                   <button
                     onClick={() => {
                       toggleLearnedStatus(currentQuestion.id, 'learned');
-                      alert('Đã đánh dấu thuộc câu hỏi Giáo lý này thành công!');
+                      setToastMessage('Đã đánh dấu thuộc câu hỏi Giáo lý này thành công!');
                     }}
                     className="px-5 py-4 bg-white hover:bg-gray-50 dark:bg-slate-900 dark:hover:bg-slate-850 border border-gray-200 dark:border-slate-800 text-gray-700 dark:text-slate-300 font-bold rounded-2xl text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 shrink-0"
                   >
@@ -749,7 +1285,7 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
                 <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-3xl border border-gray-150 dark:border-slate-850/80 text-center space-y-1 flex flex-col justify-center">
                   <span className="text-[10px] text-gray-400 dark:text-slate-500 font-bold uppercase tracking-wider block">PHẠM VI ĐÃ THI GÕ</span>
                   <span className="text-sm font-bold text-gray-700 dark:text-slate-350 line-clamp-2 leading-snug mt-1 inline-block">
-                    {filterChapter === 'all' ? 'Toàn bộ 650 câu Giáo lý' : filterChapter}
+                    {selectedScopeSummaryText}
                   </span>
                 </div>
 
@@ -812,6 +1348,78 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
 
         </div>
       )}
+
+      {/* Confirmation Exit Modal Dialog Overlay */}
+      <AnimatePresence>
+        {showExitConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowExitConfirm(false)}
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ scale: 0.95, y: 15, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.95, y: 15, opacity: 0 }}
+              transition={{ type: "spring", duration: 0.35, bounce: 0.15 }}
+              className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4 text-center z-10"
+            >
+              <div className="mx-auto w-12 h-12 bg-rose-50 dark:bg-rose-950/35 rounded-2xl flex items-center justify-center text-rose-500 mb-2">
+                <AlertCircle className="h-6 w-6" />
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="text-base font-bold text-gray-900 dark:text-white font-display">Xác thực rời phòng thi?</h3>
+                <p className="text-xs text-gray-500 dark:text-slate-400">
+                  Bạn có thực sự muốn hủy bỏ bài thi và quay lại đầu không? Toàn bộ tiến trình làm bài ở lượt này sẽ không được lưu giữ.
+                </p>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowExitConfirm(false)}
+                  className="flex-1 py-3 px-4 bg-gray-50 hover:bg-gray-100 dark:bg-slate-850 dark:hover:bg-slate-800 text-gray-700 dark:text-slate-350 text-xs font-bold rounded-xl transition-all"
+                >
+                  Quay lại thi tiếp
+                </button>
+                <button
+                  onClick={() => {
+                    stopVoiceInput();
+                    resetTranscript();
+                    setShowExitConfirm(false);
+                    setQuizStarted(false);
+                  }}
+                  className="flex-1 py-3 px-4 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow-md shadow-rose-500/10 transition-all"
+                >
+                  Xác nhận hủy thi
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating Success Feedback Toast Notification */}
+      <AnimatePresence>
+        {toastMessage && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm px-4">
+            <motion.div
+              initial={{ y: 20, opacity: 0, scale: 0.9 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 15, opacity: 0, scale: 0.9 }}
+              className="flex items-center gap-3 bg-slate-900/95 dark:bg-slate-950/95 text-slate-100 border border-slate-800/80 p-4 rounded-2xl shadow-xl shadow-slate-950/30"
+            >
+              <div className="w-7 h-7 bg-emerald-500/10 text-emerald-500 rounded-lg flex items-center justify-center shrink-0">
+                <CheckCircle2 className="h-4.5 w-4.5 font-bold" />
+              </div>
+              <p className="text-xs font-bold leading-normal flex-1 text-slate-200">
+                {toastMessage}
+              </p>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

@@ -324,7 +324,7 @@ export const MemoryMode: React.FC<MemoryModeProps> = ({
                 className={`w-full flex items-center justify-between p-3.5 rounded-2xl border text-left transition-all ${
                   scope.type === 'all' 
                     ? 'border-blue-600 bg-blue-50/30 dark:bg-blue-950/20 dark:border-blue-800 font-extrabold text-blue-600 dark:text-blue-400' 
-                    : 'border-gray-100 dark:border-slate-850 hover:bg-gray-50 dark:hover:bg-slate-800/50 font-bold text-gray-700 dark:text-slate-205 bg-white dark:bg-slate-900'
+                    : 'border-gray-100 dark:border-slate-850 hover:bg-gray-50 dark:hover:bg-slate-800/50 font-bold text-gray-700 dark:text-slate-200 bg-white dark:bg-slate-900'
                 }`}
               >
                 <div className="flex items-center gap-2">
@@ -475,7 +475,7 @@ export const MemoryMode: React.FC<MemoryModeProps> = ({
                             <span className="font-mono text-xs font-extrabold text-orange-500 bg-orange-50 dark:bg-orange-950/40 px-2 py-0.5 rounded uppercase tracking-wider">CÂU HỎI {currentCard.id}</span>
                             <span className="text-[10px] text-gray-400 dark:text-slate-500 truncate max-w-[200px] font-medium">{currentCard.lesson}</span>
                           </div>
-                          <h3 className="text-sm sm:text-base md:text-lg font-bold text-gray-805 dark:text-slate-100 leading-relaxed pt-2 sm:pt-4">
+                          <h3 className="text-sm sm:text-base md:text-lg font-bold text-gray-900 dark:text-white leading-relaxed pt-2 sm:pt-4">
                             {currentCard.question}
                           </h3>
                         </div>
@@ -490,7 +490,7 @@ export const MemoryMode: React.FC<MemoryModeProps> = ({
                     {/* Back view (Answer panel) */}
                     {showAnswer && (
                       <div 
-                        className="absolute inset-0 h-full w-full rounded-3xl bg-gradient-to-tr from-slate-50 dark:from-slate-905 via-white dark:via-slate-900 to-orange-50/15 dark:to-orange-950/5 p-6 sm:p-8 flex flex-col justify-between shadow-inner"
+                        className="absolute inset-0 h-full w-full rounded-3xl bg-gradient-to-tr from-white dark:from-slate-900 via-slate-50 dark:via-slate-900 to-amber-50/10 dark:to-slate-850/20 p-6 sm:p-8 flex flex-col justify-between shadow-inner"
                         style={{ 
                           backfaceVisibility: 'hidden', 
                           WebkitBackfaceVisibility: 'hidden',
@@ -501,9 +501,9 @@ export const MemoryMode: React.FC<MemoryModeProps> = ({
                         <div className="space-y-4">
                           <div className="flex items-center justify-between">
                             <span className="font-mono text-xs font-extrabold text-emerald-500 bg-emerald-50 dark:bg-emerald-950/45 px-2 py-0.5 rounded uppercase tracking-wider">Hội thánh Trả Lời</span>
-                            <span className="text-[10px] text-gray-400 dark:text-slate-500 font-mono">CÂU {currentCard.id}</span>
+                            <span className="text-[10px] text-gray-450 dark:text-slate-400 font-mono">CÂU {currentCard.id}</span>
                           </div>
-                          <p className="text-xs sm:text-sm md:text-base text-gray-700 dark:text-slate-205 leading-relaxed font-semibold whitespace-pre-line pt-2 sm:pt-4 overflow-y-auto max-h-[180px]">
+                          <p className="text-xs sm:text-sm md:text-base text-gray-900 dark:text-white leading-relaxed font-bold whitespace-pre-line pt-2 sm:pt-4 overflow-y-auto max-h-[180px]">
                             {currentCard.answer}
                           </p>
                         </div>
@@ -541,14 +541,14 @@ export const MemoryMode: React.FC<MemoryModeProps> = ({
               <div className="grid grid-cols-2 gap-4">
                 <button
                   onClick={() => handleResponse('needsReview')}
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-orange-200 dark:border-orange-950 bg-orange-50 dark:bg-orange-950/20 hover:bg-orange-100/70 dark:hover:bg-orange-905 px-5 py-3.5 text-sm font-bold text-orange-600 dark:text-orange-400 transition-all active:scale-95"
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-orange-200 dark:border-orange-950 bg-orange-50 dark:bg-orange-950/20 hover:bg-orange-100/70 dark:hover:bg-orange-900/30 px-5 py-3.5 text-sm font-bold text-orange-600 dark:text-orange-400 transition-all active:scale-95"
                 >
                   <AlertCircle className="h-4.5 w-4.5" />
                   <span>Chưa thuộc lòng</span>
                 </button>
                 <button
                   onClick={() => handleResponse('learned')}
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-emerald-200 dark:border-emerald-950 bg-emerald-50 dark:bg-emerald-950/20 hover:bg-emerald-100/70 dark:hover:bg-emerald-905 px-5 py-3.5 text-sm font-bold text-emerald-600 dark:text-emerald-400 transition-all active:scale-95"
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-emerald-200 dark:border-emerald-950 bg-emerald-50 dark:bg-emerald-950/20 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/30 px-5 py-3.5 text-sm font-bold text-emerald-600 dark:text-emerald-400 transition-all active:scale-95"
                 >
                   <CheckCircle2 className="h-4.5 w-4.5" />
                   <span>Tôi đã thuộc</span>

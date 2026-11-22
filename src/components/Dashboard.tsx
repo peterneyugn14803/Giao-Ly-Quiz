@@ -1,7 +1,156 @@
 import React from 'react';
 import { BookOpen, HelpCircle, Inbox, Award, ArrowRight, Zap, Target, BookOpenCheck, Brain, Sparkles } from 'lucide-react';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { QuestionItem, UserProgress } from '../types';
+
+interface ReminderConfig {
+  enabled: boolean;
+  time: string;
+}
+
+// Lightweight, 100% stable, fully responsive SVG-based progress chart to support offline modes & prevent iframe crashes
+const SVGProgressChart: React.FC<{ data: { date: string; count: number }[] }> = ({ data }) => {
+  const pointsCount = data.length;
+  if (pointsCount === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-xs text-gray-400">
+        Chưa có lịch sử học tập.
+      </div>
+    );
+  }
+
+  const maxVal = Math.max(10, ...data.map(d => d.count));
+  
+  const paddingLeft = 32;
+  const paddingRight = 16;
+  const paddingTop = 12;
+  const paddingBottom = 20;
+
+  const width = 500;
+  const height = 150;
+
+  const chartWidth = width - paddingLeft - paddingRight;
+  const chartHeight = height - paddingTop - paddingBottom;
+
+  const coords = data.map((d, i) => {
+    const x = paddingLeft + (pointsCount > 1 ? (i * chartWidth) / (pointsCount - 1) : chartWidth / 2);
+    const y = paddingTop + chartHeight - (d.count * chartHeight) / maxVal;
+    
+    let displayDate = d.date;
+    try {
+      const parts = d.date.split('-');
+      if (parts.length === 3) {
+        displayDate = `${parts[2]}/${parts[1]}`;
+      }
+    } catch (_) {}
+
+    return { x, y, label: displayDate, count: d.count };
+  });
+
+  let lineD = '';
+  let areaD = '';
+  if (coords.length > 0) {
+    lineD = `M ${coords[0].x} ${coords[0].y}`;
+    for (let i = 1; i < coords.length; i++) {
+      lineD += ` L ${coords[i].x} ${coords[i].y}`;
+    }
+    areaD = `${lineD} L ${coords[coords.length - 1].x} ${height - paddingBottom} L ${coords[0].x} ${height - paddingBottom} Z`;
+  }
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible select-none">
+      <defs>
+        <linearGradient id="svgColorLearnedAreaFallback" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
+          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
+        </linearGradient>
+      </defs>
+
+      {/* Grid lines */}
+      {[0, 0.25, 0.5, 0.75, 1].map((ratio, idx) => {
+        const hY = paddingTop + ratio * chartHeight;
+        const gridVal = Math.round(maxVal * (1 - ratio));
+        return (
+          <g key={idx}>
+            <line 
+              x1={paddingLeft} 
+              y1={hY} 
+              x2={width - paddingRight} 
+              y2={hY} 
+              stroke="#f1f5f9" 
+              strokeWidth={1} 
+              strokeDasharray="4 4"
+              className="dark:stroke-slate-800/40"
+            />
+            <text 
+              x={paddingLeft - 8} 
+              y={hY + 3} 
+              fontSize={8} 
+              textAnchor="end" 
+              fill="#94a3b8" 
+              fontWeight={600}
+              className="font-mono text-[8px] dark:fill-slate-500"
+            >
+              {gridVal}
+            </text>
+          </g>
+        );
+      })}
+
+      {/* Area fill */}
+      {areaD && (
+        <path d={areaD} fill="url(#svgColorLearnedAreaFallback)" />
+      )}
+
+      {/* Stroke path */}
+      {lineD && (
+        <path d={lineD} stroke="#3b82f6" strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      )}
+
+      {/* Interactive Dots */}
+      {coords.map((c, idx) => (
+        <g key={idx} className="group">
+          <circle 
+            cx={c.x} 
+            cy={c.y} 
+            r={3} 
+            className="fill-white stroke-blue-500 stroke-2 hover:r-4 transition-all"
+          />
+          {/* Subtle text label for each point to match polished appearance */}
+          <text
+            x={c.x}
+            y={c.y - 6}
+            fontSize={7}
+            fontWeight={700}
+            textAnchor="middle"
+            fill="#3b82f6"
+            className="font-mono hidden group-hover:block"
+          >
+            {c.count}
+          </text>
+        </g>
+      ))}
+
+      {/* X Axis line */}
+      <line x1={paddingLeft} y1={height - paddingBottom} x2={width - paddingRight} y2={height - paddingBottom} stroke="#e2e8f0" strokeWidth={1} className="dark:stroke-slate-800" />
+
+      {/* X Axis Labels */}
+      {coords.map((c, idx) => (
+        <text 
+          key={idx} 
+          x={c.x} 
+          y={height - paddingBottom + 12} 
+          fontSize={8} 
+          textAnchor="middle" 
+          fill="#94a3b8" 
+          fontWeight={600}
+          className="font-mono"
+        >
+          {c.label}
+        </text>
+      ))}
+    </svg>
+  );
+};
 
 interface DashboardProps {
   progress: UserProgress;
@@ -9,9 +158,19 @@ interface DashboardProps {
   onNavigate: (mode: 'browse' | 'memory' | 'quiz' | 'writing') => void;
   onOpenKinhSangSoi?: () => void;
   onStartQuickReview?: () => void;
+  reminderConfig: ReminderConfig;
+  onChangeReminderConfig: (config: ReminderConfig) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ progress, totalQuestions, onNavigate, onOpenKinhSangSoi, onStartQuickReview }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ 
+  progress, 
+  totalQuestions, 
+  onNavigate, 
+  onOpenKinhSangSoi, 
+  onStartQuickReview,
+  reminderConfig,
+  onChangeReminderConfig
+}) => {
   const totalLearned = progress.learned.length;
   const learnedPercent = totalQuestions > 0 ? Math.round((totalLearned / totalQuestions) * 100) : 0;
   const needsReviewCount = progress.needsReview.length;
@@ -119,7 +278,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ progress, totalQuestions, 
         </div>
 
         {/* Quiz scores */}
-        <div className="rounded-3xl border border-gray-150 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-6 shadow-sm hover:shadow-md dark:shadow-none transition-all sm:col-span-2 lg:col-span-1">
+        <div className="rounded-3xl border border-gray-150 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-6 shadow-sm hover:shadow-md dark:shadow-none transition-all">
           <div className="flex items-center justify-between mb-4">
             <span className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider font-mono font-sans">Kỳ Thi Gần Nhất</span>
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500 dark:text-emerald-400">
@@ -168,72 +327,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ progress, totalQuestions, 
         {/* Chart container */}
         <div className="h-56 w-full">
           {progress.learnedHistory && progress.learnedHistory.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart 
-                data={(progress.learnedHistory || []).map(h => {
-                  let displayDate = h.date;
-                  try {
-                    const parts = h.date.split('-');
-                    if (parts.length === 3) {
-                      displayDate = `${parts[2]}/${parts[1]}`;
-                    }
-                  } catch (_) {}
-                  return {
-                    ...h,
-                    displayDate,
-                    fullDate: `Ngày ${displayDate}`
-                  };
-                })} 
-                margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
-              >
-                <defs>
-                  <linearGradient id="colorLearnedArea" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-slate-800/40" />
-                <XAxis 
-                  dataKey="displayDate" 
-                  tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} 
-                  axisLine={{ stroke: '#e2e8f0', strokeWidth: 1 }} 
-                  className="dark:stroke-slate-800 font-mono"
-                  tickLine={false}
-                />
-                <YAxis 
-                  allowDecimals={false}
-                  tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} 
-                  axisLine={false}
-                  tickLine={false}
-                  domain={[0, 'auto']}
-                  className="font-mono"
-                />
-                <Tooltip 
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      return (
-                        <div className="bg-slate-900/95 dark:bg-slate-950/95 border border-slate-205 dark:border-slate-800 rounded-2xl px-3.5 py-2.5 shadow-xl text-xs text-slate-200">
-                          <p className="font-bold text-slate-400 mb-1">{payload[0].payload.fullDate}</p>
-                          <p className="font-black text-blue-400">
-                            Số câu đã thuộc: <span className="text-white text-sm font-mono ml-1">{payload[0].value}</span>
-                          </p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="count" 
-                  stroke="#3b82f6" 
-                  strokeWidth={2.5} 
-                  fillOpacity={1} 
-                  fill="url(#colorLearnedArea)" 
-                  activeDot={{ r: 5, stroke: '#ffffff', strokeWidth: 2, fill: '#3b82f6' }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            <SVGProgressChart data={progress.learnedHistory} />
           ) : (
             <div className="flex flex-col items-center justify-center h-full border border-dashed border-gray-150 dark:border-slate-800 rounded-3xl text-gray-400 dark:text-slate-500">
               <span className="text-xs font-bold">Hãy lưu thêm câu đã thuộc để hiển thị biểu đồ xu hướng ✦</span>
@@ -311,10 +405,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ progress, totalQuestions, 
             <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-50 dark:bg-violet-950/40 text-violet-500 dark:text-violet-400 group-hover:bg-violet-550 group-hover:text-white dark:group-hover:text-white transition-all duration-300">
               <Brain className="h-6 w-6" />
             </div>
-            <h4 className="text-lg font-bold text-gray-800 dark:text-slate-100 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">Thi Tự Luận AI</h4>
+            <h4 className="text-lg font-bold text-gray-800 dark:text-slate-100 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">Thi Tự Luận</h4>
             <p className="text-xs text-gray-400 dark:text-slate-500 font-mono mt-1 font-semibold uppercase tracking-wider">Writing Mode</p>
             <p className="mt-3 text-sm text-gray-500 dark:text-slate-400 leading-relaxed">
-              Nhập câu trả lời bằng gõ bàn phím. Sử dụng trí tuệ nhân tạo Gemini đánh giá theo ý chính thần học và tương đồng từ đồng nghĩa.
+              Nhập câu trả lời bằng gõ bàn phím. Tự động so khớp từ khóa cốt lõi cục bộ và đối chiếu trực quan từng từ với đáp án gốc.
             </p>
             <div className="mt-6 flex items-center gap-1.5 text-xs font-bold text-violet-500 dark:text-violet-400">
               <span>Bắt đầu thi gõ</span>

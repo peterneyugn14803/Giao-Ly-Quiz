@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { BookOpen, Search, Sparkles, Trophy, Sun, Moon, ArrowLeft, X } from 'lucide-react';
 import { QuestionItem } from '../types';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface HeaderProps {
   streak: number;
@@ -246,6 +247,9 @@ export const Header: React.FC<HeaderProps> = ({
               <Moon className="h-4.5 w-4.5 text-blue-600" />
             )}
           </button>
+
+          {/* Install PWA Button */}
+          <PWAInstallButton />
 
           {/* Streak badge */}
           <div className="flex items-center gap-1 sm:gap-1.5 rounded-xl bg-orange-50 dark:bg-orange-950/20 px-2 py-1.5 sm:px-3.5 sm:py-1.5 text-orange-600 dark:text-orange-400 border border-orange-100 dark:border-orange-900/30 shadow-xs">

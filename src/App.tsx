@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, Layers, HelpCircle, LayoutDashboard, ChevronRight, Share2, Brain, Sparkles } from 'lucide-react';
+import { BookOpen, Layers, HelpCircle, LayoutDashboard, ChevronRight, Share2, Brain, Sparkles, Timer } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
@@ -11,6 +11,8 @@ import { CATECHISM_DATA } from './data';
 import { WritingQuiz } from './components/WritingQuiz';
 import KinhSangSoiModal from './components/KinhSangSoiModal';
 import { Footer } from './components/Footer';
+import { OfflineIndicator } from './components/OfflineIndicator';
+import { safeStorage } from './utils/safeStorage';
 
 const LOCAL_STORAGE_KEY = 'giaoly_progress_v1';
 
@@ -36,15 +38,15 @@ export default function App() {
     }
   }, [view]);
   const [zenMode, setZenMode] = useState<boolean>(() => {
-    return localStorage.getItem('giaoly_zen_mode') === 'true';
+    return safeStorage.getItem('giaoly_zen_mode') === 'true';
   });
 
   useEffect(() => {
-    localStorage.setItem('giaoly_zen_mode', zenMode ? 'true' : 'false');
+    safeStorage.setItem('giaoly_zen_mode', zenMode ? 'true' : 'false');
   }, [zenMode]);
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const saved = localStorage.getItem('theme');
+    const saved = safeStorage.getItem('theme');
     if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
       return 'dark';
     }
@@ -57,12 +59,81 @@ export default function App() {
     } else {
       document.documentElement.classList.remove('dark');
     }
-    localStorage.setItem('theme', theme);
+    safeStorage.setItem('theme', theme);
   }, [theme]);
+
+  const [reminderConfig, setReminderConfig] = useState<{ enabled: boolean; time: string }>(() => {
+    const saved = safeStorage.getItem('study_reminder_config');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return { enabled: !!parsed.enabled, time: '08:00' };
+      } catch (_) {}
+    }
+    return { enabled: false, time: '08:00' };
+  });
+
+  const handleUpdateReminderConfig = (newConfig: { enabled: boolean; time: string }) => {
+    const fixedConfig = { ...newConfig, time: '08:00' };
+    setReminderConfig(fixedConfig);
+    safeStorage.setItem('study_reminder_config', JSON.stringify(fixedConfig));
+  };
+
+  useEffect(() => {
+    if (!reminderConfig.enabled) return;
+
+    const checkReminder = () => {
+      const now = new Date();
+      const currentHour = String(now.getHours()).padStart(2, '0');
+      const currentMin = String(now.getMinutes()).padStart(2, '0');
+      const currentTimeStr = `${currentHour}:${currentMin}`;
+
+      if (currentTimeStr === reminderConfig.time) {
+        const todayStr = now.toDateString();
+        const lastNotified = safeStorage.getItem('study_reminder_last_notified');
+        
+        if (lastNotified !== todayStr) {
+          sendNotification(
+            "Cùng học Giáo Lý 📖", 
+            "Đến giờ hẹn học Giáo Lý rồi! Hãy dành 5 phút hôm nay để ôn tập và bồi dưỡng Đức Tin nhé. ✨"
+          );
+          safeStorage.setItem('study_reminder_last_notified', todayStr);
+        }
+      }
+    };
+
+    const sendNotification = (title: string, body: string) => {
+      if (!('Notification' in window) || Notification.permission !== 'granted') {
+        return;
+      }
+      
+      const options = {
+        body,
+        icon: '/icon-192.png',
+        badge: '/icon-192-maskable.png',
+        tag: 'study-reminder',
+        vibrate: [100, 50, 100],
+      };
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then(registration => {
+          registration.showNotification(title, options);
+        }).catch(() => {
+          new Notification(title, options);
+        });
+      } else {
+        new Notification(title, options);
+      }
+    };
+
+    checkReminder();
+    const interval = setInterval(checkReminder, 20000);
+    return () => clearInterval(interval);
+  }, [reminderConfig]);
 
   // Load user progress from localStorage on boot
   useEffect(() => {
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+    const saved = safeStorage.getItem(LOCAL_STORAGE_KEY);
     if (saved) {
       try {
         const parsed: UserProgress = JSON.parse(saved);
@@ -126,12 +197,12 @@ export default function App() {
   // Save progress dynamically on any changes
   const saveProgress = (newProgress: UserProgress) => {
     setProgress(newProgress);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newProgress));
+    safeStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newProgress));
   };
 
   const updateStreak = () => {
     const today = new Date().toISOString().split('T')[0];
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+    const saved = safeStorage.getItem(LOCAL_STORAGE_KEY);
     if (!saved) return;
     try {
       const parsed: UserProgress = JSON.parse(saved);
@@ -233,6 +304,33 @@ export default function App() {
 
   const isZenActive = zenMode && view !== 'dashboard';
 
+  const [studySeconds, setStudySeconds] = useState<number>(0);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (isZenActive) {
+      interval = setInterval(() => {
+        setStudySeconds(prev => prev + 1);
+      }, 1000);
+    } else {
+      setStudySeconds(0);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isZenActive]);
+
+  const formatTime = (totalSeconds: number) => {
+    const hrs = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    const pad = (num: number) => String(num).padStart(2, '0');
+    if (hrs > 0) {
+      return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+    }
+    return `${pad(mins)}:${pad(secs)}`;
+  };
+
   return (
     <div className={`min-h-screen bg-slate-50/50 dark:bg-slate-950 text-gray-800 dark:text-slate-100 ${isZenActive ? 'pb-8' : 'pb-16'} transition-colors duration-300`}>
       <KinhSangSoiModal isOpen={isKinhOpen} onClose={() => setIsKinhOpen(false)} />
@@ -291,6 +389,8 @@ export default function App() {
                   onNavigate={setView}
                   onOpenKinhSangSoi={() => setIsKinhOpen(true)}
                   onStartQuickReview={handleStartQuickReview}
+                  reminderConfig={reminderConfig}
+                  onChangeReminderConfig={handleUpdateReminderConfig}
                 />
               </motion.div>
             )}
@@ -380,11 +480,27 @@ export default function App() {
               : 'bottom-[74px] right-4 lg:bottom-6 lg:right-6'
           }`}
         >
+          <AnimatePresence>
+            {isZenActive && (
+              <motion.div
+                initial={{ opacity: 0, x: 15, scale: 0.9 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: 15, scale: 0.9 }}
+                transition={{ duration: 0.25 }}
+                className="flex items-center gap-1.5 px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-full bg-slate-900/90 dark:bg-slate-900/90 border border-slate-800 text-amber-400 text-xs font-bold font-mono shadow-lg shadow-black/10 backdrop-blur-md shrink-0"
+                title="Thời gian học tập liên tục"
+              >
+                <Timer className="h-4 w-4 animate-pulse text-amber-400" />
+                <span>{formatTime(studySeconds)}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <button
             onClick={() => setZenMode(prev => !prev)}
             className={`group flex h-10 w-10 sm:h-auto sm:w-auto items-center justify-center gap-2 sm:px-4 sm:py-2.5 rounded-full shadow-lg border backdrop-blur-md transition-all duration-300 active:scale-95 hover:scale-105 ${
               isZenActive
-                ? 'bg-amber-500 border-amber-400 text-slate-950 font-black shadow-amber-500/25'
+                ? 'bg-amber-500 border-amber-300 text-slate-950 font-black animate-zen-pulse'
                 : 'bg-white/95 dark:bg-slate-900/95 border-gray-150 dark:border-slate-800 text-gray-700 dark:text-slate-200 hover:text-gray-950 dark:hover:text-white'
             }`}
             title={isZenActive ? 'Thoát Chế độ Tập Trung (Hiện thanh công cụ)' : 'Bật Chế độ Tập Trung (Tối đa sâu sắc)'}
@@ -444,10 +560,12 @@ export default function App() {
             }`}
           >
             <Brain className={`h-5 w-5 ${view === 'writing' ? 'text-violet-500 animate-pulse' : ''}`} />
-            <span>Tự luận AI</span>
+            <span>Tự luận</span>
           </button>
         </div>
       )}
+      {/* Offline & PWA Cache Status */}
+      <OfflineIndicator />
     </div>
   );
 }

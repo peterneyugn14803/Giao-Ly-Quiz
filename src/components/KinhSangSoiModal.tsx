@@ -64,63 +64,63 @@ const KinhSangSoiModal: React.FC<KinhSangSoiModalProps> = ({ isOpen, onClose }) 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm transition-opacity">
-      <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-[30px] shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[85vh] overflow-hidden transform transition-transform animate-in fade-in zoom-in duration-300 border border-gray-100 dark:border-slate-800">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm transition-opacity">
+      <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-t-[24px] sm:rounded-[30px] shadow-2xl flex flex-col max-h-[88vh] sm:max-h-[85vh] overflow-hidden transform transition-transform animate-in slide-in-from-bottom sm:zoom-in duration-300 border border-gray-100 dark:border-slate-800">
         
         {/* Close Button */}
         <button 
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-800 p-2 rounded-full transition-colors z-20"
+          className="absolute top-3 right-3 sm:top-4 sm:right-4 text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-800 p-1.5 sm:p-2 rounded-full transition-colors z-20"
           title="Đóng"
         >
-          <X size={18} />
+          <X size={16} className="sm:w-[18px] sm:h-[18px]" />
         </button>
 
         {/* Modal Tabs Header */}
-        <div className="pt-6 px-6 sm:px-8 border-b border-gray-100 dark:border-slate-800/80 bg-gray-50/50 dark:bg-slate-900/50">
+        <div className="pt-4 sm:pt-6 px-4 sm:px-8 border-b border-gray-100 dark:border-slate-800/80 bg-gray-50/50 dark:bg-slate-900/50">
           <div className="flex gap-2 mb-1">
             <button
               onClick={() => setActiveTab('kinh')}
-              className={`flex-1 py-3 text-sm font-black uppercase tracking-wider border-b-2 transition-all flex items-center justify-center gap-2 ${
+              className={`flex-1 py-1.5 sm:py-3 text-[11px] sm:text-xs md:text-sm font-black uppercase tracking-wider border-b-2 transition-all flex items-center justify-center gap-1.5 sm:gap-2 ${
                 activeTab === 'kinh'
                   ? 'border-blue-600 text-blue-600 dark:border-amber-400 dark:text-amber-400'
                   : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-slate-300'
               }`}
             >
-              <Sparkles size={16} />
+              <Sparkles size={14} className="sm:w-4 sm:h-4" />
               Kinh Sáng Soi
             </button>
             <button
               onClick={() => setActiveTab('loichua')}
-              className={`flex-1 py-3 text-sm font-black uppercase tracking-wider border-b-2 transition-all flex items-center justify-center gap-2 ${
+              className={`flex-1 py-1.5 sm:py-3 text-[11px] sm:text-xs md:text-sm font-black uppercase tracking-wider border-b-2 transition-all flex items-center justify-center gap-1.5 sm:gap-2 ${
                 activeTab === 'loichua'
                   ? 'border-blue-600 text-blue-600 dark:border-amber-400 dark:text-amber-400'
                   : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-slate-300'
               }`}
             >
-              <BookOpen size={16} />
+              <BookOpen size={14} className="sm:w-4 sm:h-4" />
               Lời Chúa Khích Lệ
             </button>
           </div>
         </div>
 
         {/* Modal Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-4 sm:space-y-6">
           {activeTab === 'kinh' ? (
             /* TAB 1: KIN SANG SOI */
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-4 sm:space-y-6 animate-fade-in">
               <div className="flex justify-center">
-                <div className="p-3.5 bg-amber-50 dark:bg-amber-900/20 rounded-full text-amber-600 dark:text-amber-400 animate-pulse">
-                  <Sparkles size={28} />
+                <div className="p-2.5 sm:p-3.5 bg-amber-50 dark:bg-amber-900/20 rounded-full text-amber-600 dark:text-amber-400 animate-pulse">
+                  <Sparkles size={24} className="sm:w-7 sm:h-7" />
                 </div>
               </div>
 
-              <div className="text-center">
-                <h3 className="text-xs font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-1">Cầu nguyện trước khi học</h3>
-                <h2 className="text-2xl font-black text-gray-800 dark:text-amber-200 tracking-tight">KINH SÁNG SOI</h2>
+              <div className="text-center space-y-0.5">
+                <h3 className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">Cầu nguyện trước khi học</h3>
+                <h2 className="text-lg sm:text-2xl font-black text-gray-800 dark:text-amber-200 tracking-tight">KINH SÁNG SOI</h2>
               </div>
 
-              <div className="bg-blue-50/35 dark:bg-blue-950/10 p-5 sm:p-6 rounded-2xl border border-blue-500/10 text-center leading-relaxed italic text-gray-700 dark:text-slate-300 text-sm sm:text-base font-medium">
+              <div className="bg-blue-50/35 dark:bg-blue-950/10 p-4 sm:p-6 rounded-[20px] sm:rounded-2xl border border-blue-500/10 text-center leading-relaxed italic text-gray-750 dark:text-slate-300 text-xs sm:text-base font-medium">
                 "Cúi xin Chúa sáng soi cho chúng con được biết việc phải làm, 
                 cùng khi làm xin Chúa giúp đỡ cho mỗi kinh mỗi việc chúng con, 
                 từ khởi sự cho đến hoàn thành đều nhờ bởi ơn Chúa. Amen."
@@ -128,12 +128,12 @@ const KinhSangSoiModal: React.FC<KinhSangSoiModalProps> = ({ isOpen, onClose }) 
 
               {/* Connected Preview Card of Daily Verse */}
               {currentVerse && (
-                <div className="bg-amber-50/30 dark:bg-amber-950/5 border border-amber-500/10 rounded-2xl p-4.5 space-y-2 mt-4">
+                <div className="bg-amber-50/30 dark:bg-amber-950/5 border border-amber-500/10 rounded-xl sm:rounded-2xl p-3.5 sm:p-4.5 space-y-2 mt-2 sm:mt-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full">
+                    <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full">
                       Lời Chúa tiếp sức
                     </span>
-                    <span className="text-[10px] font-mono font-bold text-gray-400 dark:text-slate-500">
+                    <span className="text-[9px] sm:text-[10px] font-mono font-bold text-gray-400 dark:text-slate-500">
                       {currentVerse.tham_chieu}
                     </span>
                   </div>
@@ -142,7 +142,7 @@ const KinhSangSoiModal: React.FC<KinhSangSoiModalProps> = ({ isOpen, onClose }) 
                   </p>
                   <button 
                     onClick={() => setActiveTab('loichua')}
-                    className="text-[11px] font-black text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 mt-1 transition-all"
+                    className="text-[10px] sm:text-[11px] font-black text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 mt-1 transition-all"
                   >
                     Xem thêm Lời Chúa truyền động lực <ArrowRight size={12} />
                   </button>
@@ -151,16 +151,16 @@ const KinhSangSoiModal: React.FC<KinhSangSoiModalProps> = ({ isOpen, onClose }) 
             </div>
           ) : (
             /* TAB 2: LOI CHUA KHICH LE & NGHILUC */
-            <div className="space-y-5 animate-fade-in">
+            <div className="space-y-4 sm:space-y-5 animate-fade-in">
               {/* Theme/Category filter pills */}
               <div className="space-y-1.5">
                 <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-slate-500 block px-0.5">CHỦ ĐỀ LỜI CHÚA</span>
-                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
+                <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap max-h-24 sm:max-h-none">
                   {categories.map((cat) => (
                     <button
                       key={cat}
                       onClick={() => handleSelectCategory(cat)}
-                      className={`text-[11px] font-bold px-3 py-1.5 rounded-xl border transition-all ${
+                      className={`text-[10px] sm:text-[11px] font-bold px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-xl border transition-all shrink-0 sm:shrink ${
                         selectedCategory === cat
                           ? 'bg-blue-600 border-blue-600 text-white dark:bg-amber-500 dark:border-amber-400 dark:text-slate-950 shadow-sm'
                           : 'bg-gray-50 text-gray-500 border-gray-150 hover:bg-gray-100 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-750 dark:hover:bg-slate-700/80'
@@ -174,58 +174,58 @@ const KinhSangSoiModal: React.FC<KinhSangSoiModalProps> = ({ isOpen, onClose }) 
 
               {/* Verse Display Area with reload/next actions */}
               {currentVerse && (
-                <div key={fadeKey} className="relative bg-gradient-to-br from-amber-50/20 to-orange-50/10 dark:from-slate-900 dark:to-slate-900 border border-amber-500/15 dark:border-amber-500/10 rounded-[24px] p-6 space-y-4 shadow-sm animate-fade-in">
+                <div key={fadeKey} className="relative bg-gradient-to-br from-amber-50/20 to-orange-50/10 dark:from-slate-900 dark:to-slate-900 border border-amber-500/15 dark:border-amber-500/10 rounded-2xl sm:rounded-[24px] p-4 sm:p-6 space-y-3 sm:space-y-4 shadow-sm animate-fade-in">
                   {/* Category Card Header */}
-                  <div className="flex justify-between items-center border-b border-gray-100/50 dark:border-slate-800/80 pb-3">
+                  <div className="flex justify-between items-center border-b border-gray-100/50 dark:border-slate-800/80 pb-2 sm:pb-3">
                     <div className="flex items-center gap-1.5">
-                      <Heart size={14} className="text-red-500 fill-red-500/20" />
-                      <span className="text-[11px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                      <Heart size={13} className="text-red-500 fill-red-500/20" />
+                      <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
                         Chủ đề: {currentVerse.chu_de}
                       </span>
                     </div>
-                    <span className="text-xs font-mono font-black text-gray-500 dark:text-slate-400 bg-gray-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-lg border border-gray-150 dark:border-slate-700/50">
+                    <span className="text-[10px] sm:text-xs font-mono font-black text-gray-500 dark:text-slate-400 bg-gray-100 dark:bg-slate-800 px-2 sm:px-2.5 py-0.5 rounded-lg border border-gray-150 dark:border-slate-700/50">
                       {currentVerse.tham_chieu}
                     </span>
                   </div>
 
                   {/* scripture citation */}
-                  <div className="relative py-2 px-1">
-                    <Quote className="absolute -top-1 -left-2 h-8 w-8 text-amber-500/10 dark:text-amber-500/5 -scale-x-100" />
-                    <p className="text-sm sm:text-base text-gray-800 dark:text-slate-200 font-bold italic leading-relaxed text-center">
-                      {currentVerse.trich_dan}
+                  <div className="relative py-1.5 px-0.5">
+                    <Quote className="absolute -top-1 -left-2 h-6 w-6 sm:h-8 sm:w-8 text-amber-500/10 dark:text-amber-500/5 -scale-x-100" />
+                    <p className="text-xs sm:text-base text-gray-800 dark:text-slate-200 font-bold italic leading-relaxed text-center">
+                      "{currentVerse.trich_dan}"
                     </p>
                   </div>
 
                   {/* motivational comment */}
-                  <div className="bg-white/70 dark:bg-slate-950/40 p-4 rounded-xl border border-gray-100 dark:border-slate-850 shadow-inner">
-                    <div className="flex items-center gap-1.5 mb-1.5">
-                      <Compass size={14} className="text-blue-500" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">
+                  <div className="bg-white/70 dark:bg-slate-950/40 p-3 sm:p-4 rounded-xl border border-gray-100 dark:border-slate-850 shadow-inner">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Compass size={13} className="text-blue-500" />
+                      <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">
                         Ý NGHĨA TIẾP SỨC
                       </span>
                     </div>
-                    <p className="text-xs sm:text-sm text-gray-500 dark:text-slate-400 leading-relaxed font-semibold">
+                    <p className="text-[11px] sm:text-xs text-gray-500 dark:text-slate-400 leading-relaxed font-semibold">
                       {currentVerse.y_nghia_dong_luc}
                     </p>
                   </div>
 
                   {/* Deck Drawing Controls inside core Card */}
-                  <div className="flex gap-2 pt-1 justify-end">
+                  <div className="flex gap-2 pt-0.5 justify-end">
                     <button
                       onClick={drawRandomVerse}
-                      className="text-xs font-bold text-gray-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-amber-300 flex items-center gap-1 py-1.5 px-3 rounded-lg hover:bg-gray-100/50 dark:hover:bg-slate-800/40 transition-colors"
+                      className="text-[10px] sm:text-xs font-bold text-gray-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-amber-300 flex items-center gap-1 py-1 px-2.5 rounded-lg hover:bg-gray-100/50 dark:hover:bg-slate-800/40 transition-colors"
                       title="Lấy ngẫu nhiên câu khác"
                     >
-                      <RefreshCw size={13} className="animate-spin-once" />
-                      Lấy câu khác
+                      <RefreshCw size={12} className="animate-spin-once" />
+                      Đổi câu
                     </button>
                     <button
                       onClick={nextVerse}
-                      className="text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1 py-1.5 px-3 rounded-lg hover:bg-blue-50/50 dark:hover:bg-slate-850/50 transition-colors"
+                      className="text-[10px] sm:text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1 py-1 px-2.5 rounded-lg hover:bg-blue-50/50 dark:hover:bg-slate-850/50 transition-colors"
                       title="Xem câu tiếp theo"
                     >
-                      Tiếp tục
-                      <ArrowRight size={13} />
+                      Kế tiếp
+                      <ArrowRight size={12} />
                     </button>
                   </div>
                 </div>
@@ -235,30 +235,30 @@ const KinhSangSoiModal: React.FC<KinhSangSoiModalProps> = ({ isOpen, onClose }) 
         </div>
 
         {/* Modal Footer Controls */}
-        <div className="p-6 border-t border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-900/50 flex flex-col sm:flex-row gap-3">
+        <div className="p-4 sm:p-6 border-t border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-900/50 flex flex-row gap-2.5">
           {activeTab === 'kinh' ? (
             <button
               onClick={() => setActiveTab('loichua')}
-              className="flex-1 border border-blue-200 dark:border-slate-700 text-blue-600 dark:text-amber-400 hover:bg-white dark:hover:bg-slate-800 font-black py-3 sm:py-3.5 px-5 rounded-2xl transition duration-200 text-xs sm:text-sm flex items-center justify-center gap-2"
+              className="flex-1 border border-blue-200 dark:border-slate-700 text-blue-600 dark:text-amber-400 hover:bg-white dark:hover:bg-slate-800 font-black py-2.5 sm:py-3.5 px-3 sm:px-5 rounded-xl sm:rounded-2xl transition duration-200 text-[11px] sm:text-sm flex items-center justify-center gap-1.5"
             >
-              <Heart size={16} />
-              Đọc Lời Chúa Nghị Lực
+              <Heart size={14} className="text-red-500 fill-red-500/15" />
+              Đọc Lời Chúa
             </button>
           ) : (
             <button
               onClick={() => setActiveTab('kinh')}
-              className="flex-1 border border-blue-200 dark:border-slate-700 text-blue-600 dark:text-amber-400 hover:bg-white dark:hover:bg-slate-800 font-black py-3 sm:py-3.5 px-5 rounded-2xl transition duration-200 text-xs sm:text-sm flex items-center justify-center gap-2"
+              className="flex-1 border border-blue-200 dark:border-slate-700 text-blue-600 dark:text-amber-400 hover:bg-white dark:hover:bg-slate-800 font-black py-2.5 sm:py-3.5 px-3 sm:px-5 rounded-xl sm:rounded-2xl transition duration-200 text-[11px] sm:text-sm flex items-center justify-center gap-1.5"
             >
-              <Sparkles size={16} />
-              Xem Lại Kinh Sáng Soi
+              <Sparkles size={14} />
+              Xem Lại Kinh
             </button>
           )}
 
           <button 
             onClick={onClose}
-            className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black py-3 sm:py-3.5 px-6 rounded-2xl transition duration-200 shadow-md flex items-center justify-center gap-2 text-xs sm:text-sm active:scale-98"
+            className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black py-2.5 sm:py-3.5 px-3 sm:px-6 rounded-xl sm:rounded-2xl transition duration-200 shadow-md flex items-center justify-center gap-1.5 text-[11px] sm:text-sm active:scale-98"
           >
-            Bắt đầu giờ học
+            Bắt đầu học
           </button>
         </div>
       </div>
