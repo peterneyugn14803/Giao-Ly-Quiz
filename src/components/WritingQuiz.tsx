@@ -2,13 +2,19 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { 
   Brain, Sparkles, CheckCircle2, AlertCircle, RefreshCw, 
   Play, BookOpen, Layers, ChevronRight, ChevronDown, HelpCircle, 
-  Award, CornerDownLeft, Volume2, Info, ArrowRight, ArrowLeft, Filter,
+  Award, CornerDownLeft, Volume2, VolumeX, Info, ArrowRight, ArrowLeft, Filter,
   Check, Minus, X, Mic, MicOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 import { QuestionItem, UserProgress } from '../types';
 import { getStructuredCatechism } from '../data';
+import { safeStorage } from '../utils/safeStorage';
+import { normalizeTextForVietnameseTTS } from '../utils/ttsNormalizer';
+
+const WRITING_AUTO_READ_KEY = 'giaoly_writing_auto_read';
+const WRITING_SPEECH_RATE_KEY = 'giaoly_writing_speech_rate';
+const SPEECH_RATE_OPTIONS = [0.75, 1, 1.25, 1.5] as const;
 
 // Standard Vietnamese stop words to filter out when automatically identifying keywords
 const VIETNAMESE_STOP_WORDS = new Set([
@@ -188,6 +194,24 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
   } = useSpeechRecognition();
   const voiceBaseTextRef = useRef<string>('');
   const isVoiceActiveRef = useRef<boolean>(false);
+
+  // 2b. Question Text-to-Speech (Auto-read & adjustable speed)
+  const supportsSpeechSynthesis =
+    typeof window !== 'undefined' && 'speechSynthesis' in window;
+  const [autoReadQuestion, setAutoReadQuestion] = useState<boolean>(() => {
+    return safeStorage.getItem(WRITING_AUTO_READ_KEY) !== 'false';
+  });
+  const [speechRate, setSpeechRate] = useState<number>(() => {
+    const saved = parseFloat(safeStorage.getItem(WRITING_SPEECH_RATE_KEY) || '1');
+    return SPEECH_RATE_OPTIONS.includes(saved as (typeof SPEECH_RATE_OPTIONS)[number]) ? saved : 1;
+  });
+  const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const speechUtteranceIdRef = useRef<number>(0);
+  const speakTimerRef = useRef<number | null>(null);
+  const listeningRef = useRef<boolean>(false);
+  listeningRef.current = listening;
+  const scoreResultRef = useRef<unknown>(null);
   
   // 3. Scoring modes & response results representation
   const [scoreResult, setScoreResult] = useState<{
@@ -333,6 +357,120 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
   // Focus reference for textareas
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  useEffect(() => {
+    if (!supportsSpeechSynthesis) return;
+    const loadVoices = () => {
+      try {
+        setAvailableVoices(window.speechSynthesis.getVoices());
+      } catch {
+        // Ignore browser voice enumeration errors
+      }
+    };
+    loadVoices();
+    window.speechSynthesis.addEventListener?.('voiceschanged', loadVoices);
+    return () => {
+      window.speechSynthesis.removeEventListener?.('voiceschanged', loadVoices);
+    };
+  }, [supportsSpeechSynthesis]);
+
+  const stopQuestionSpeech = useCallback(() => {
+    speechUtteranceIdRef.current += 1;
+    if (speakTimerRef.current !== null) {
+      window.clearTimeout(speakTimerRef.current);
+      speakTimerRef.current = null;
+    }
+    if (supportsSpeechSynthesis) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {
+        // Ignore cancel errors
+      }
+    }
+    setIsSpeaking(false);
+  }, [supportsSpeechSynthesis]);
+
+  const speakQuestionText = useCallback(
+    (text: string, rateOverride?: number) => {
+      if (!supportsSpeechSynthesis || !text.trim()) return;
+
+      speechUtteranceIdRef.current += 1;
+      const currentToken = speechUtteranceIdRef.current;
+
+      if (speakTimerRef.current !== null) {
+        window.clearTimeout(speakTimerRef.current);
+        speakTimerRef.current = null;
+      }
+
+      try {
+        window.speechSynthesis.cancel();
+      } catch {
+        // Ignore cancel errors
+      }
+      setIsSpeaking(false);
+
+      speakTimerRef.current = window.setTimeout(() => {
+        speakTimerRef.current = null;
+        if (
+          speechUtteranceIdRef.current !== currentToken ||
+          isVoiceActiveRef.current ||
+          listeningRef.current
+        ) {
+          return;
+        }
+
+        try {
+          const spokenText = normalizeTextForVietnameseTTS(text);
+          if (!spokenText) return;
+          const utterance = new SpeechSynthesisUtterance(spokenText);
+          utterance.lang = 'vi-VN';
+          utterance.rate = rateOverride ?? speechRate;
+
+          const voices =
+            availableVoices.length > 0
+              ? availableVoices
+              : window.speechSynthesis.getVoices();
+          const viVoice =
+            voices.find((v) => v.lang.toLowerCase() === 'vi-vn') ||
+            voices.find((v) => v.lang.toLowerCase().startsWith('vi'));
+          if (viVoice) {
+            utterance.voice = viVoice;
+          }
+
+          utterance.onstart = () => {
+            if (speechUtteranceIdRef.current === currentToken) {
+              setIsSpeaking(true);
+            }
+          };
+          utterance.onend = () => {
+            if (speechUtteranceIdRef.current === currentToken) {
+              setIsSpeaking(false);
+            }
+          };
+          utterance.onerror = () => {
+            if (speechUtteranceIdRef.current === currentToken) {
+              setIsSpeaking(false);
+            }
+          };
+
+          window.speechSynthesis.speak(utterance);
+        } catch {
+          if (speechUtteranceIdRef.current === currentToken) {
+            setIsSpeaking(false);
+          }
+        }
+      }, 60);
+    },
+    [availableVoices, speechRate, supportsSpeechSynthesis]
+  );
+
+  useEffect(() => {
+    safeStorage.setItem(WRITING_AUTO_READ_KEY, autoReadQuestion ? 'true' : 'false');
+  }, [autoReadQuestion]);
+
+  useEffect(() => {
+    safeStorage.setItem(WRITING_SPEECH_RATE_KEY, String(speechRate));
+  }, [speechRate]);
+
   const stopVoiceInput = useCallback(() => {
     isVoiceActiveRef.current = false;
     if (listening) {
@@ -347,6 +485,9 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
       stopVoiceInput();
       return;
     }
+
+    // Stop question reading whenever user activates voice dictation
+    stopQuestionSpeech();
 
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       setToastMessage('Nhập bằng giọng nói cần kết nối mạng. Khi ngoại tuyến, bạn vẫn có thể gõ và chấm điểm tự luận bình thường.');
@@ -379,6 +520,12 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
   };
 
   useEffect(() => {
+    if (listening) {
+      stopQuestionSpeech();
+    }
+  }, [listening, stopQuestionSpeech]);
+
+  useEffect(() => {
     if (!isVoiceActiveRef.current || scoreResult !== null) return;
 
     if (transcript) {
@@ -395,8 +542,9 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
   useEffect(() => {
     return () => {
       SpeechRecognition.abortListening().catch(() => {});
+      stopQuestionSpeech();
     };
-  }, []);
+  }, [stopQuestionSpeech]);
 
   // Restart / Init writing quiz sessions
   const startQuizSession = () => {
@@ -406,6 +554,7 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
     }
 
     stopVoiceInput();
+    stopQuestionSpeech();
     resetTranscript();
 
     // Fisher-Yates shuffle on a shallow copy, then take the user-selected number of questions
@@ -433,9 +582,60 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
   };
 
   const currentQuestion = sessionQuestions[currentIndex];
+  scoreResultRef.current = scoreResult;
+
+  // Auto-read question when entering a new question during active session
+  useEffect(() => {
+    if (
+      quizStarted &&
+      !showSummary &&
+      currentQuestion &&
+      autoReadQuestion &&
+      scoreResultRef.current === null &&
+      !listeningRef.current &&
+      !isVoiceActiveRef.current
+    ) {
+      speakQuestionText(currentQuestion.question);
+    } else if (!quizStarted || showSummary) {
+      stopQuestionSpeech();
+    }
+    // Intentionally omit listening/scoreResult so stopping mic does not re-trigger auto-read
+  }, [quizStarted, showSummary, currentIndex, currentQuestion, autoReadQuestion, speakQuestionText, stopQuestionSpeech]);
+
+  const handleToggleAutoRead = () => {
+    const next = !autoReadQuestion;
+    setAutoReadQuestion(next);
+    if (!next) {
+      stopQuestionSpeech();
+    }
+  };
+
+  const handleChangeSpeechRate = (nextRate: number) => {
+    setSpeechRate(nextRate);
+    if (isSpeaking && currentQuestion && !listening) {
+      speakQuestionText(currentQuestion.question, nextRate);
+    }
+  };
+
+  const handleManualToggleSpeech = () => {
+    if (!currentQuestion) return;
+    if (!supportsSpeechSynthesis) {
+      setToastMessage('Trình duyệt của bạn chưa hỗ trợ đọc văn bản tự động.');
+      return;
+    }
+    if (isSpeaking) {
+      stopQuestionSpeech();
+      return;
+    }
+    if (listening) {
+      stopVoiceInput();
+    }
+    speakQuestionText(currentQuestion.question);
+  };
 
   const handleNextQuestion = () => {
     stopVoiceInput();
+    stopQuestionSpeech();
     resetTranscript();
 
     if (currentIndex + 1 < sessionQuestions.length) {
@@ -460,6 +660,7 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
   const handleSubmitAndGrade = () => {
     if (!currentQuestion) return;
     stopVoiceInput();
+    stopQuestionSpeech();
 
     const localGrading = calculateLocalScore(userAnswer, currentQuestion.answer);
 
@@ -922,6 +1123,64 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Auto-Read Question & Speech Speed Settings */}
+              <div className="pt-2 space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold tracking-wider uppercase text-gray-500 dark:text-slate-400 font-sans flex items-center gap-1.5">
+                    <Volume2 className="h-3.5 w-3.5 text-blue-500" />
+                    <span>Đọc Câu Hỏi Tự Động:</span>
+                  </span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={autoReadQuestion}
+                    onClick={handleToggleAutoRead}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold border transition-all ${
+                      autoReadQuestion
+                        ? 'bg-blue-600 border-blue-600 text-white shadow-sm shadow-blue-500/20'
+                        : 'bg-white dark:bg-slate-900 border-gray-250 dark:border-slate-800 text-gray-500 dark:text-slate-400'
+                    }`}
+                  >
+                    {autoReadQuestion ? (
+                      <>
+                        <Volume2 className="h-3.5 w-3.5" />
+                        <span>Đang bật</span>
+                      </>
+                    ) : (
+                      <>
+                        <VolumeX className="h-3.5 w-3.5" />
+                        <span>Đang tắt</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-gray-150 dark:border-slate-800 bg-gray-50/60 dark:bg-slate-950/40 px-3.5 py-2.5">
+                  <span className="text-[11px] font-semibold text-gray-500 dark:text-slate-400">
+                    Tốc độ đọc:
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {SPEECH_RATE_OPTIONS.map((rate) => {
+                      const active = speechRate === rate;
+                      return (
+                        <button
+                          key={rate}
+                          type="button"
+                          onClick={() => handleChangeSpeechRate(rate)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold font-mono border transition-all ${
+                            active
+                              ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
+                              : 'bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-800 text-gray-600 dark:text-slate-300 hover:border-blue-400'
+                          }`}
+                        >
+                          {rate}x
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Instruction Panel */}
@@ -933,6 +1192,7 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
               <ul className="list-disc list-inside space-y-1.5 leading-relaxed pl-1">
                 <li>Hệ thống <strong>Chế độ Tự luận</strong> tự động trích lọc các thực thể từ khóa quan trọng trong đáp án mẫu.</li>
                 <li>Bạn có thể chọn nhiều Phần, nhiều Chương hoặc từng Bài cùng lúc để tổng hợp đề thi tự luận.</li>
+                <li>Câu hỏi có thể tự động đọc thành tiếng và tự dừng ngay khi bạn bấm <strong>Nhập bằng giọng nói</strong>.</li>
                 <li>Bạn hoàn toàn có thể tự đối chiếu thủ công với đáp án gốc và tự nhập điểm để cập nhật lịch sử.</li>
               </ul>
             </div>
@@ -979,21 +1239,90 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
 
           {/* Question Card Box */}
           <div className="bg-white dark:bg-slate-900 border border-gray-150 dark:border-slate-850 rounded-3xl p-6 sm:p-8 shadow-sm space-y-4">
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-[10px] font-black px-2 py-0.5 rounded leading-none bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-100/10 shrink-0">
-                Câu Hỏi #{currentQuestion.id}
-              </span>
-              <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400 px-2 py-0.5 rounded font-medium max-w-[200px] truncate">
-                {currentQuestion.lesson}
-              </span>
-              <span className="text-[10px] text-gray-400 dark:text-slate-500 max-w-[200px] truncate hidden sm:inline">
-                [{currentQuestion.referenceCode}]
-              </span>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="font-mono text-[10px] font-black px-2 py-0.5 rounded leading-none bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-100/10 shrink-0">
+                  Câu Hỏi #{currentQuestion.id}
+                </span>
+                <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400 px-2 py-0.5 rounded font-medium max-w-[180px] sm:max-w-[220px] truncate">
+                  {currentQuestion.lesson}
+                </span>
+                <span className="text-[10px] text-gray-400 dark:text-slate-500 max-w-[200px] truncate hidden sm:inline">
+                  [{currentQuestion.referenceCode}]
+                </span>
+              </div>
+
+              {/* Manual Read / Stop Question Button */}
+              <button
+                type="button"
+                onClick={handleManualToggleSpeech}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all shrink-0 ${
+                  isSpeaking
+                    ? 'bg-blue-600 border-blue-600 text-white shadow-sm shadow-blue-500/20'
+                    : 'bg-blue-50/70 hover:bg-blue-100/80 dark:bg-blue-950/40 dark:hover:bg-blue-900/50 border-blue-200/70 dark:border-blue-800/50 text-blue-600 dark:text-blue-400'
+                }`}
+                title={isSpeaking ? 'Dừng đọc câu hỏi' : 'Đọc lại câu hỏi'}
+              >
+                {isSpeaking ? (
+                  <>
+                    <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
+                    <VolumeX className="h-3.5 w-3.5" />
+                    <span>Đang đọc (Dừng)</span>
+                  </>
+                ) : (
+                  <>
+                    <Volume2 className="h-3.5 w-3.5" />
+                    <span>Đọc câu hỏi</span>
+                  </>
+                )}
+              </button>
             </div>
 
             <p className="text-base sm:text-lg font-black text-gray-850 dark:text-slate-100 leading-relaxed font-sans">
               {currentQuestion.question}
             </p>
+
+            {/* Auto-read toggle & speech speed bar */}
+            <div className="pt-2 border-t border-gray-100 dark:border-slate-850 flex flex-wrap items-center justify-between gap-2.5">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={autoReadQuestion}
+                onClick={handleToggleAutoRead}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-all ${
+                  autoReadQuestion
+                    ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-400'
+                    : 'bg-gray-50 dark:bg-slate-950/40 border-gray-200 dark:border-slate-800 text-gray-500 dark:text-slate-400'
+                }`}
+                title="Bật hoặc tắt tự động đọc khi chuyển câu mới"
+              >
+                {autoReadQuestion ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+                <span>Tự động đọc: {autoReadQuestion ? 'Bật' : 'Tắt'}</span>
+              </button>
+
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-semibold text-gray-400 dark:text-slate-500 mr-0.5">
+                  Tốc độ:
+                </span>
+                {SPEECH_RATE_OPTIONS.map((rate) => {
+                  const active = speechRate === rate;
+                  return (
+                    <button
+                      key={rate}
+                      type="button"
+                      onClick={() => handleChangeSpeechRate(rate)}
+                      className={`px-2 py-1 rounded-lg text-[11px] font-bold font-mono border transition-all ${
+                        active
+                          ? 'bg-blue-600 border-blue-600 text-white'
+                          : 'bg-white dark:bg-slate-950 border-gray-200 dark:border-slate-800 text-gray-600 dark:text-slate-400 hover:border-blue-400'
+                      }`}
+                    >
+                      {rate}x
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           {/* Interactive Writing Arena */}
@@ -1386,6 +1715,7 @@ export const WritingQuiz: React.FC<WritingQuizProps> = ({
                 <button
                   onClick={() => {
                     stopVoiceInput();
+                    stopQuestionSpeech();
                     resetTranscript();
                     setShowExitConfirm(false);
                     setQuizStarted(false);
